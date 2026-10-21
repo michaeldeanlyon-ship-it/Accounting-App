@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { renderApp } from '../../test/renderApp'
+import { memoryRepo, renderApp } from '../../test/renderApp'
 
 describe('Time page', () => {
   it('shows the unbilled time in hours and minutes', async () => {
@@ -46,5 +46,17 @@ describe('Time page', () => {
     renderApp('/people/sam/invoices')
     await screen.findByRole('heading', { name: /Sam/ })
     expect(screen.queryByRole('link', { name: 'Time' })).toBeNull()
+  })
+})
+
+describe('Time page without an hourly rate', () => {
+  it('shows only the time, no amounts', async () => {
+    const repo = memoryRepo()
+    const alex = (await repo.listPeople()).find((p) => p.id === 'alex')!
+    await repo.savePerson({ ...alex, hourlyRate: 0 })
+    renderApp('/people/alex/time', { repo })
+    const summary = await screen.findByTestId('unbilled-summary')
+    expect(summary).toHaveTextContent('21 h 10 min')
+    expect(summary).not.toHaveTextContent('kr')
   })
 })

@@ -7,7 +7,7 @@ import { Button, Card, Field, Notice, PageLoading, StatusPill, inputClass } from
 import { formatDayLabel, formatShortDate } from '../../domain/dates'
 import { formatDuration } from '../../domain/duration'
 import { invoiceStatus, invoiceTotals, lineNet, validateForSending, type Invoice, type InvoiceLine } from '../../domain/invoice'
-import { CURRENCIES, formatMoney, type Currency } from '../../domain/money'
+import { CURRENCIES, formatMoney, money, type Currency } from '../../domain/money'
 import type { Person } from '../../domain/person'
 import { legalNotes, VAT_RATES, VAT_TREATMENT_LABELS, VAT_TREATMENTS, type VatTreatment } from '../../domain/vat'
 import { fetchRateToSek } from '../../data/fx'
@@ -37,6 +37,7 @@ function InvoiceEditor({ invoice, person, clientNames }: { invoice: Invoice; per
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [preview, setPreview] = useState(false)
   const [paidDate, setPaidDate] = useState(today)
+  const [receivedSekInput, setReceivedSekInput] = useState(invoice.paidAmountSek ?? 0)
   const save = useSaveInvoice()
   const send = useSendInvoice()
   const remove = useDeleteDraft()
@@ -97,10 +98,32 @@ function InvoiceEditor({ invoice, person, clientNames }: { invoice: Invoice; per
   async function onPaid(paid: boolean) {
     setErrors([])
     try {
-      const result = await setPaid.mutateAsync({ invoice: draft, paid, date: paidDate })
+      const amountSek = draft.currency !== 'SEK' && receivedSekInput > 0 ? receivedSekInput : null
+      const result = await setPaid.mutateAsync({ invoice: draft, paid, date: paidDate, amountSek })
       setDraft(result)
       setSaved(result)
       setMessage(paid ? 'Marked as paid' : 'Marked as unpaid')
+    } catch (e) {
+      fail(e)
+    }
+  }
+
+  /** Fills the SEK received from the Riksbank rate on the payment date. */
+  async function onRateOnPaymentDate() {
+    try {
+      const rate = await fetchRateToSek(draft.currency, paidDate)
+      setReceivedSekInput(Math.round(totals.gross.amount * rate))
+    } catch (e) {
+      fail(e)
+    }
+  }
+
+  async function onSaveReceived() {
+    try {
+      const result = await save.mutateAsync({ invoice: { ...draft, paidAmountSek: receivedSekInput > 0 ? receivedSekInput : null }, previous: saved })
+      setDraft(result)
+      setSaved(result)
+      setMessage('SEK received saved')
     } catch (e) {
       fail(e)
     }
@@ -189,7 +212,10 @@ function InvoiceEditor({ invoice, person, clientNames }: { invoice: Invoice; per
             </select>
           </Field>
           {draft.currency !== 'SEK' && (
-            <Field label={`Exchange rate (SEK per 1 ${draft.currency})`} hint={<button type="button" className="font-medium text-accent hover:underline" onClick={onFetchRate}>Get the Riksbank rate</button>}>
+            <Field
+              label={`Exchange rate (SEK per 1 ${draft.currency})`}
+              error={draft.fxRateToSek === 1 ? 'Check the rate: 1 is probably wrong' : null}
+              hint={<button type="button" className="font-medium text-accent hover:underline" onClick={onFetchRate}>Get the Riksbank rate</button>}>
               <NumberInput value={draft.fxRateToSek} onValueChange={(v) => update({ fxRateToSek: v || 1 })} />
             </Field>
           )}
@@ -221,13 +247,13 @@ function InvoiceEditor({ invoice, person, clientNames }: { invoice: Invoice; per
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {person.workStyle === 'hourly' && (
-            <Button size="sm" onClick={() => addLine({ id: crypto.randomUUID(), kind: 'time', description: `${formatDayLabel(today)} · `, workDate: today, minutes: 0, hourlyRate: person.hourlyRate, vatRate })}>
+            <Button size="sm" onClick={() => addLine({ id: crypto.randomUUID(), kind: 'time', description: `${formatDayLabel(today)} · `, workDate: today, minutes: 0, hourlyRate: person.hourlyRate > 0 ? person.hourlyRate : null, vatRate })}>
               + Add day
             </Button>
           )}
           <Button size="sm" onClick={() => addLine({ id: crypto.randomUUID(), kind: 'fixed', description: '', quantity: 1, unit: 'st', unitPrice: 0, vatRate })}>+ Add item</Button>
           {person.workStyle === 'base_commission' && (
-            <Button size="sm" onClick={() => addLine({ id: crypto.randomUUID(), kind: 'commission', description: 'Commission', salesBase: 0, percent: person.commissionPercent || 5, vatRate })}>
+            <Button size="sm" onClick={() => addLine({ id: crypto.randomUUID(), kind: 'fixed', description: 'Commission', quantity: 1, unit: 'st', unitPrice: 0, vatRate })}>
               + Add commission
             </Button>
           )}
@@ -274,7 +300,19 @@ function InvoiceEditor({ invoice, person, clientNames }: { invoice: Invoice; per
           {!isDraft && saved.status !== 'credited' && (
             saved.paidDate ? (
               <>
-                <span className="text-sm text-success">Paid {formatShortDate(saved.paidDate)}</span>
+                <span className="text-sm text-success">
+                  Paid {formatShortDate(saved.paidDate)}
+                  {saved.currency !== 'SEK' && saved.paidAmountSek ? ` · ${formatMoney(money(saved.paidAmountSek, 'SEK'))} received` : ''}
+                </span>
+                {saved.currency !== 'SEK' && !saved.paidAmountSek && (
+                  <>
+                    <label className="flex items-center gap-2 whitespace-nowrap text-sm text-muted">
+                      Amount received (SEK)
+                      <NumberInput scale={100} className="w-32" value={receivedSekInput} onValueChange={setReceivedSekInput} />
+                    </label>
+                    <Button onClick={onSaveReceived} disabled={busy || !(receivedSekInput > 0)}>Save SEK received</Button>
+                  </>
+                )}
                 <Button onClick={() => onPaid(false)} disabled={busy}>Mark as unpaid</Button>
               </>
             ) : (
@@ -283,6 +321,15 @@ function InvoiceEditor({ invoice, person, clientNames }: { invoice: Invoice; per
                   Paid on
                   <input type="date" aria-label="Payment date" className={`${inputClass} w-40`} value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
                 </label>
+                {draft.currency !== 'SEK' && (
+                  <>
+                    <label className="flex items-center gap-2 whitespace-nowrap text-sm text-muted">
+                      Amount received (SEK)
+                      <NumberInput scale={100} className="w-32" value={receivedSekInput} onValueChange={setReceivedSekInput} placeholder="from your bank" />
+                    </label>
+                    <button type="button" onClick={onRateOnPaymentDate} className="text-sm font-medium text-accent hover:underline">Use Riksbank rate</button>
+                  </>
+                )}
                 <Button onClick={() => onPaid(true)} disabled={busy}>Mark as paid</Button>
               </>
             )
@@ -329,6 +376,7 @@ function LineEditor({ line, index, currency, showVat, onChange, onRemove }: {
   onRemove: () => void
 }) {
   const unit = currency === 'SEK' ? 'kr' : currency
+  const timeOnly = line.kind === 'time' && line.hourlyRate === null
   return (
     <div role="group" aria-label={`Line ${index + 1}`} className="rounded-lg border border-line p-3">
       <div className="grid grid-cols-2 items-end gap-3 md:grid-cols-12">
@@ -341,50 +389,55 @@ function LineEditor({ line, index, currency, showVat, onChange, onRemove }: {
             <Field label="Date" className="md:col-span-2">
               <input type="date" className={inputClass} value={line.workDate} onChange={(e) => onChange({ workDate: e.target.value })} />
             </Field>
-            <div className="md:col-span-3">
+            <div className={line.hourlyRate === null ? 'md:col-span-4' : 'md:col-span-3'}>
               <span className="mb-1 block text-sm font-medium">Time</span>
               <DurationPicker compact minutes={line.minutes} onChange={(minutes) => onChange({ minutes })} />
             </div>
-            <Field label={`Rate (${unit}/h)`} className="md:col-span-1">
-              <NumberInput scale={100} value={line.hourlyRate} onValueChange={(hourlyRate) => onChange({ hourlyRate })} />
-            </Field>
+            {line.hourlyRate !== null && (
+              <Field label={`Rate (${unit}/h)`} className="md:col-span-1">
+                <NumberInput scale={100} value={line.hourlyRate} onValueChange={(hourlyRate) => onChange({ hourlyRate })} />
+              </Field>
+            )}
           </>
         )}
 
         {line.kind === 'fixed' && (
           <>
-            <Field label="Quantity" className="md:col-span-2">
-              <NumberInput value={line.quantity} onValueChange={(quantity) => onChange({ quantity })} />
-            </Field>
-            <Field label="Unit" className="md:col-span-1">
-              <input className={inputClass} value={line.unit} onChange={(e) => onChange({ unit: e.target.value })} />
-            </Field>
-            <Field label={`Unit price (${unit})`} className="md:col-span-3">
-              <NumberInput scale={100} value={line.unitPrice} onValueChange={(unitPrice) => onChange({ unitPrice })} />
+            {line.quantity !== 1 && (
+              <Field label="Quantity" className="md:col-span-2">
+                <NumberInput value={line.quantity} onValueChange={(quantity) => onChange({ quantity })} />
+              </Field>
+            )}
+            <Field label={line.quantity === 1 ? `Amount (${unit})` : `Price each (${unit})`} className={line.quantity === 1 ? 'md:col-span-4' : 'md:col-span-2'}>
+              <NumberInput scale={100} value={line.unitPrice} onValueChange={(unitPrice) => onChange({ unitPrice })} placeholder="0" />
             </Field>
           </>
         )}
 
         {line.kind === 'commission' && (
           <>
-            <Field label={`Sales amount (${unit})`} className="md:col-span-4">
+            <Field label={`Sales amount (${unit})`} className="md:col-span-3">
               <NumberInput scale={100} value={line.salesBase} onValueChange={(salesBase) => onChange({ salesBase })} />
             </Field>
-            <Field label="Commission %" className="md:col-span-2">
+            <Field label="Commission %" className="md:col-span-1">
               <NumberInput value={line.percent} onValueChange={(percent) => onChange({ percent })} />
             </Field>
           </>
         )}
 
-        <div className={`flex items-end justify-between gap-2 ${showVat ? 'md:col-span-2' : 'md:col-span-2'} col-span-2`}>
-          {showVat && (
+        <div className={`col-span-2 flex items-end justify-between gap-2 ${line.kind === 'time' ? 'md:col-span-2' : 'md:col-span-4'}`}>
+          {showVat && !timeOnly && (
             <Field label="Moms" className="w-20">
               <select className={inputClass} value={line.vatRate} onChange={(e) => onChange({ vatRate: Number(e.target.value) })}>
                 {VAT_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
               </select>
             </Field>
           )}
-          <span data-testid="line-total" className="flex h-10 flex-1 items-center justify-end font-semibold tabular-nums">{formatMoney(lineNet(line, currency))}</span>
+          {timeOnly ? (
+            <span className="flex h-10 flex-1 items-center justify-end whitespace-nowrap text-sm text-muted">Time only</span>
+          ) : (
+            <span data-testid="line-total" className="flex h-10 flex-1 items-center justify-end whitespace-nowrap font-semibold tabular-nums">{formatMoney(lineNet(line, currency))}</span>
+          )}
           <button type="button" aria-label={`Remove line ${index + 1}`} onClick={onRemove} className="flex h-10 w-8 items-center justify-center rounded-lg text-muted hover:bg-danger-soft hover:text-danger">
             ×
           </button>

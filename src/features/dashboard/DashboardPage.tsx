@@ -6,7 +6,7 @@ import { cashInByMonth, dashboardKpis, incomingPayments, turnoverForYear, vatThr
 import { addDays, formatShortDate, monthKey, parseIso, yearOf, type IsoDate } from '../../domain/dates'
 import { upcomingDeadlines } from '../../domain/deadlines'
 import { formatDuration } from '../../domain/duration'
-import { invoiceTotals } from '../../domain/invoice'
+import { invoiceTotals, receivedSek } from '../../domain/invoice'
 import { formatMoney, money } from '../../domain/money'
 import { useDeductions, useExpenses, useInvoices, usePeople, useSetPaid, useTaxParams } from '../../data/hooks'
 import { personTaxSummary } from '../tax/taxModel'
@@ -134,7 +134,7 @@ export function DashboardPage() {
             <EmptyState title="No invoices yet" body="Invoices you send show up here until they are paid." />
           ) : (
             <ul aria-labelledby="payments-heading" className="divide-y divide-line">
-              {rows.map(({ invoice, status, outstandingSek, grossSek }) => {
+              {rows.map(({ invoice, status, outstandingSek }) => {
                 const person = byId.get(invoice.ownerId)
                 const totals = invoiceTotals(invoice)
                 const paid = status === 'paid'
@@ -151,7 +151,7 @@ export function DashboardPage() {
                         {invoice.currency !== 'SEK' && ` · ${formatMoney(totals.gross)}`}
                       </p>
                     </div>
-                    <span className="shrink-0 text-right font-semibold tabular-nums sm:w-28">{kr(paid ? grossSek.amount : outstandingSek.amount)}</span>
+                    <span className="shrink-0 text-right font-semibold tabular-nums sm:w-28">{kr(paid ? receivedSek(invoice).amount : outstandingSek.amount)}</span>
                     <span className="hidden w-20 text-right sm:block"><StatusPill status={status} testId="payment-status" /></span>
                     <label className="flex shrink-0 cursor-pointer items-center justify-end gap-1.5 text-sm text-muted sm:w-16">
                       <input

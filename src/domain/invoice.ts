@@ -13,12 +13,16 @@ interface LineBase {
   vatRate: number
 }
 
-/** Work logged per day, priced by the hour. Amounts are minor units of the invoice currency. */
+/**
+ * Work logged per day. Amounts are minor units of the invoice currency.
+ * With an hourly rate the line is priced by the hour; with `hourlyRate: null` it only shows
+ * the time, and the amount comes from a separate total line.
+ */
 export interface TimeLine extends LineBase {
   kind: 'time'
   workDate: IsoDate
   minutes: number
-  hourlyRate: number
+  hourlyRate: number | null
   timeEntryId?: string
 }
 
@@ -58,6 +62,8 @@ export interface Invoice {
   paidDate: IsoDate | null
   /** Minor units of the invoice currency. Null with a paid date means paid in full. */
   paidAmount: number | null
+  /** Öre that actually reached the bank, for invoices in another currency. */
+  paidAmountSek?: number | null
   creditsInvoiceId: string | null
   notes: string
   lines: InvoiceLine[]
@@ -80,7 +86,7 @@ export const DUE_SOON_DAYS = 7
 export function lineNet(line: InvoiceLine, currency: Currency): Money {
   switch (line.kind) {
     case 'time':
-      return amountForMinutes(line.minutes, money(line.hourlyRate, currency))
+      return line.hourlyRate === null ? money(0, currency) : amountForMinutes(line.minutes, money(line.hourlyRate, currency))
     case 'fixed':
       return multiplyMoney(money(line.unitPrice, currency), line.quantity)
     case 'commission':
@@ -91,7 +97,9 @@ export function lineNet(line: InvoiceLine, currency: Currency): Money {
 export function lineDetail(line: InvoiceLine, currency: Currency): string {
   switch (line.kind) {
     case 'time':
-      return `${formatDuration(line.minutes)} × ${formatMoney(money(line.hourlyRate, currency))}/h`
+      return line.hourlyRate === null
+        ? formatDuration(line.minutes)
+        : `${formatDuration(line.minutes)} × ${formatMoney(money(line.hourlyRate, currency))}/h`
     case 'fixed':
       return `${line.quantity} ${line.unit} × ${formatMoney(money(line.unitPrice, currency))}`
     case 'commission':
@@ -161,12 +169,28 @@ export function invoiceStatus(invoice: Invoice, today: IsoDate): InvoiceStatus {
   return 'sent'
 }
 
-export function recordPayment(invoice: Invoice, date: IsoDate, amount?: number): Invoice {
-  return { ...invoice, paidDate: date, paidAmount: amount ?? invoiceTotals(invoice).gross.amount }
+/** `amountSek` is what reached the bank in öre, for invoices in another currency. */
+export function recordPayment(invoice: Invoice, date: IsoDate, amount?: number, amountSek?: number | null): Invoice {
+  return { ...invoice, paidDate: date, paidAmount: amount ?? invoiceTotals(invoice).gross.amount, paidAmountSek: amountSek ?? null }
 }
 
 export function markUnpaid(invoice: Invoice): Invoice {
-  return { ...invoice, paidDate: null, paidAmount: null }
+  return { ...invoice, paidDate: null, paidAmount: null, paidAmountSek: null }
+}
+
+/** SEK received: the amount entered from the bank, or the paid amount at the invoice's rate. */
+export function receivedSek(invoice: Invoice): Money {
+  if (!invoice.paidDate) return money(0, 'SEK')
+  if (invoice.paidAmountSek !== null && invoice.paidAmountSek !== undefined) return money(invoice.paidAmountSek, 'SEK')
+  return convertToSek(money(invoice.paidAmount ?? invoiceTotals(invoice).gross.amount, invoice.currency), invoice.fxRateToSek)
+}
+
+/** The part of the SEK received that is income, i.e. without the moms. */
+export function receivedNetSek(invoice: Invoice): Money {
+  const totals = invoiceTotals(invoice)
+  const received = receivedSek(invoice)
+  if (totals.gross.amount === 0) return money(0, 'SEK')
+  return multiplyMoney(received, totals.net.amount / totals.gross.amount)
 }
 
 export function dueDateFromTerms(issueDate: IsoDate, termsDays: number): IsoDate {
@@ -188,25 +212,21 @@ export function salesPeriodFor(date: IsoDate): { start: IsoDate; end: IsoDate; l
     : { start: `${ym}-16`, end: `${ym}-${lastDay}`, label: `16–${lastDay} ${month}` }
 }
 
-export function salesInvoiceLines(input: {
-  baseFee: number
-  periodLabel: string
-  commissionPercent: number
-  vatRate: number
-}): InvoiceLine[] {
+/** Base fee from Settings plus a commission amount typed in each period. */
+export function salesInvoiceLines(input: { baseFee: number; periodLabel: string; vatRate: number }): InvoiceLine[] {
   return [
     {
       id: crypto.randomUUID(), kind: 'fixed', description: `Base fee ${input.periodLabel}`,
       quantity: 1, unit: 'st', unitPrice: input.baseFee, vatRate: input.vatRate,
     },
     {
-      id: crypto.randomUUID(), kind: 'commission', description: `Commission ${input.periodLabel}`,
-      salesBase: 0, percent: input.commissionPercent, vatRate: input.vatRate,
+      id: crypto.randomUUID(), kind: 'fixed', description: `Commission ${input.periodLabel}`,
+      quantity: 1, unit: 'st', unitPrice: 0, vatRate: input.vatRate,
     },
   ]
 }
 
-export function timeLinesFromEntries(entries: readonly TimeEntry[], hourlyRate: number, vatRate: number): TimeLine[] {
+export function timeLinesFromEntries(entries: readonly TimeEntry[], hourlyRate: number | null, vatRate: number): TimeLine[] {
   return [...entries]
     .sort((a, b) => a.workDate.localeCompare(b.workDate))
     .map((entry) => ({

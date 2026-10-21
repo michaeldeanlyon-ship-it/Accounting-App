@@ -1,5 +1,5 @@
 import { addDays, monthKey, yearOf, type IsoDate } from './dates'
-import { invoiceStatus, invoiceTotals, type Invoice, type InvoiceStatus } from './invoice'
+import { invoiceStatus, invoiceTotals, receivedSek, type Invoice, type InvoiceStatus } from './invoice'
 import { convertToSek, money, sumMoney, type Money } from './money'
 
 /** Invoices that represent money owed: sent (or part paid / paid), not drafts or cancelled ones. */
@@ -11,11 +11,6 @@ function outstanding(invoice: Invoice): number {
   const gross = invoiceTotals(invoice).gross.amount
   if (!invoice.paidDate) return gross
   return invoice.paidAmount === null ? 0 : Math.max(0, gross - invoice.paidAmount)
-}
-
-function paidSoFar(invoice: Invoice): number {
-  if (!invoice.paidDate) return 0
-  return invoice.paidAmount ?? invoiceTotals(invoice).gross.amount
 }
 
 const toSek = (amountMinor: number, invoice: Invoice): Money =>
@@ -40,7 +35,7 @@ export function dashboardKpis(invoices: readonly Invoice[], today: IsoDate, owne
   return {
     expected30: sumMoney(expected.map((i) => toSek(outstanding(i), i)), 'SEK'),
     overdue: sumMoney(overdue.map((i) => toSek(outstanding(i), i)), 'SEK'),
-    paidThisMonth: sumMoney(paid.map((i) => toSek(paidSoFar(i), i)), 'SEK'),
+    paidThisMonth: sumMoney(paid.map(receivedSek), 'SEK'),
     overdueCount: overdue.length,
     dueSoonCount: open.filter((i) => invoiceStatus(i, today) === 'due_soon').length,
   }
@@ -85,7 +80,7 @@ export function cashInByMonth(invoices: readonly Invoice[], months: readonly str
   for (const invoice of invoices.filter(isLive)) {
     if (invoice.paidDate) {
       const m = byMonth.get(monthKey(invoice.paidDate))
-      if (m) add(m.paid, invoice.ownerId, toSek(paidSoFar(invoice), invoice).amount)
+      if (m) add(m.paid, invoice.ownerId, receivedSek(invoice).amount)
     }
     const rest = outstanding(invoice)
     if (rest > 0) {

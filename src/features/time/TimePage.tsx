@@ -34,9 +34,14 @@ export function TimePage() {
         <div>
           <p className="text-sm text-muted">Not invoiced yet</p>
           <p data-testid="unbilled-summary" className="text-2xl font-semibold tabular-nums">
-            {formatDuration(summary.minutes)} <span className="text-base font-normal text-muted">= {formatMoney(summary.amount, { decimals: 0 })} excl. moms</span>
+            {formatDuration(summary.minutes)}
+            {person.hourlyRate > 0 && <span className="text-base font-normal text-muted"> = {formatMoney(summary.amount, { decimals: 0 })} excl. moms</span>}
           </p>
-          <p className="text-xs text-muted">At {formatMoney(rate, { decimals: 0 })} an hour. Change the rate in Settings.</p>
+          <p className="text-xs text-muted">
+            {person.hourlyRate > 0
+              ? `At ${formatMoney(rate, { decimals: 0 })} an hour. Change the rate in Settings.`
+              : 'The days and their time go on the invoice; you type the total amount there.'}
+          </p>
         </div>
         {summary.count > 0 && (
           <Button variant="primary" onClick={invoiceUnbilled} disabled={createInvoice.isPending}>
@@ -141,7 +146,7 @@ function TimeRow({ entry, rate, invoiceNumber }: { entry: TimeEntry; rate: numbe
       <span className="w-28 font-medium">{formatDayLabel(entry.workDate)}</span>
       <span className="min-w-0 flex-1">{entry.note}</span>
       <span className="w-24 text-right font-semibold tabular-nums">{formatDuration(entry.minutes)}</span>
-      <span className="w-24 text-right tabular-nums text-muted">{formatMoney(amountForMinutes(entry.minutes, money(rate, 'SEK')), { decimals: 0 })}</span>
+      {rate > 0 && <span className="w-24 text-right tabular-nums text-muted">{formatMoney(amountForMinutes(entry.minutes, money(rate, 'SEK')), { decimals: 0 })}</span>}
       <span className="w-36 text-right">
         {invoiceNumber ? (
           <Link to={`../invoices/${entry.invoiceId}`} className="text-xs font-medium text-accent hover:underline">On {invoiceNumber}</Link>

@@ -65,3 +65,11 @@ describe('fSkattPaidSoFar', () => {
     expect(fSkattPaidSoFar(10_000, '2026-01-10')).toBe(0)
   })
 })
+
+describe('foreign income', () => {
+  it('uses the SEK actually received as income', () => {
+    const usd = inv({ currency: 'USD', fxRateToSek: 10, vatTreatment: 'exempt', paidAmountSek: 1_100_000,
+      lines: [{ id: 'l', kind: 'fixed', description: 'Base', quantity: 1, unit: 'st', unitPrice: 100_000, vatRate: 0 }] })
+    expect(yearToDate({ person: alex, invoices: [usd], expenses: [], deductions: [], today: '2026-10-21' }).income).toBe(11_000)
+  })
+})

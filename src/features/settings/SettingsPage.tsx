@@ -8,6 +8,7 @@ import {
   ACCOUNTING_METHOD_LABELS, VAT_PERIOD_LABELS, isValidOrgNumber, isValidSwedishVatNumber, vatNumberFromOrgNumber,
   type AccountingMethod, type Person, type VatPeriod,
 } from '../../domain/person'
+import { CURRENCIES, type Currency } from '../../domain/money'
 import type { TaxYearParams } from '../../domain/tax/params'
 import { usePeople, useSavePerson, useSaveTaxParams, useTaxParams } from '../../data/hooks'
 
@@ -124,13 +125,17 @@ function PersonForm({ person }: { person: Person }) {
           <Field label="Bankgiro"><input {...text('bankgiro')} /></Field>
           <Field label="IBAN"><input {...text('iban')} /></Field>
           <Field label="BIC"><input {...text('bic')} /></Field>
+          <Field label="Usual invoice currency" hint="New invoices start in this currency">
+            <select className={inputClass} value={p.defaultCurrency} onChange={(e) => set('defaultCurrency', e.target.value as Currency)}>
+              {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </Field>
           {p.workStyle === 'hourly' ? (
-            <Field label="Hourly rate (kr)"><NumberInput scale={100} value={p.hourlyRate} onValueChange={(v) => set('hourlyRate', v)} /></Field>
+            <Field label="Hourly rate (kr)" hint="Leave empty to type each invoice's total yourself"><NumberInput scale={100} value={p.hourlyRate} onValueChange={(v) => set('hourlyRate', v)} /></Field>
           ) : (
-            <>
-              <Field label="Base fee per half month (kr)"><NumberInput scale={100} value={p.baseFee} onValueChange={(v) => set('baseFee', v)} /></Field>
-              <Field label="Commission (%)"><NumberInput value={p.commissionPercent} onValueChange={(v) => set('commissionPercent', v)} /></Field>
-            </>
+            <Field label={`Base fee per half month (${p.defaultCurrency === 'SEK' ? 'kr' : p.defaultCurrency})`} hint="The commission amount is typed on each invoice">
+              <NumberInput scale={100} value={p.baseFee} onValueChange={(v) => set('baseFee', v)} />
+            </Field>
           )}
         </Section>
 

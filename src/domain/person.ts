@@ -1,4 +1,5 @@
 import type { Housing } from './expense'
+import type { Currency } from './money'
 
 export type VatPeriod = 'monthly' | 'quarterly' | 'yearly'
 export type AccountingMethod = 'cash' | 'invoice'
@@ -36,6 +37,8 @@ export interface Person {
   baseFee: number
   commissionPercent: number
   defaultClientName: string
+  /** Currency new invoices start in, e.g. USD for a US client. */
+  defaultCurrency: Currency
 }
 
 export const VAT_PERIOD_LABELS: Record<VatPeriod, string> = {

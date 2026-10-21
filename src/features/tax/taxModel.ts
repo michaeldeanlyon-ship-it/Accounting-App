@@ -1,7 +1,7 @@
 import { yearOf, type IsoDate } from '../../domain/dates'
 import { fSkattDates } from '../../domain/deadlines'
 import { deductibleCostSek, type Deduction, type Expense } from '../../domain/expense'
-import { invoiceTotals, type Invoice } from '../../domain/invoice'
+import { invoiceTotals, receivedNetSek, type Invoice } from '../../domain/invoice'
 import type { Person } from '../../domain/person'
 import { estimateTax, fSkattAdvice, projectFullYear, type TaxEstimate, type TaxInput } from '../../domain/tax/estimate'
 import type { TaxYearParams } from '../../domain/tax/params'
@@ -25,13 +25,6 @@ export interface YearToDate {
 
 const kr = (ore: number) => Math.round(ore / 100)
 
-/** Share of an invoice's net that has been received, for part payments under the cash method. */
-function paidShare(invoice: Invoice): number {
-  const gross = invoiceTotals(invoice).gross.amount
-  if (invoice.paidAmount === null || gross === 0) return 1
-  return Math.min(1, invoice.paidAmount / gross)
-}
-
 export function yearToDate({ person, invoices, expenses, deductions, today }: Sources): YearToDate {
   const year = yearOf(today)
   const inYear = (date: IsoDate | null) => date !== null && yearOf(date) === year && date <= today
@@ -39,7 +32,7 @@ export function yearToDate({ person, invoices, expenses, deductions, today }: So
 
   const income =
     person.accountingMethod === 'cash'
-      ? mine.filter((i) => inYear(i.paidDate)).reduce((sum, i) => sum + invoiceTotals(i).netSek.amount * paidShare(i), 0)
+      ? mine.filter((i) => inYear(i.paidDate)).reduce((sum, i) => sum + receivedNetSek(i).amount, 0)
       : mine.filter((i) => inYear(i.issueDate)).reduce((sum, i) => sum + invoiceTotals(i).netSek.amount, 0)
 
   const cost = expenses

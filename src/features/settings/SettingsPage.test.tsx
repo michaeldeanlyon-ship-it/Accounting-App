@@ -33,3 +33,25 @@ describe('Settings page', () => {
     expect((await repo.getTaxParams(2026)).pbb).toBe(60000)
   })
 })
+
+describe('Settings for invoicing in another currency', () => {
+  it('saves the usual invoice currency', async () => {
+    const { user, repo } = renderApp('/settings')
+    const sam = await screen.findByRole('region', { name: 'Sam' })
+    await user.selectOptions(within(sam).getByLabelText('Usual invoice currency'), 'EUR')
+    await user.click(within(sam).getByRole('button', { name: 'Save Sam' }))
+    await within(sam).findByText('Saved')
+    expect((await repo.listPeople()).find((p) => p.id === 'sam')?.defaultCurrency).toBe('EUR')
+  })
+})
+
+describe('Demo data', () => {
+  it('passes the settings checks, so both people can be saved unchanged', async () => {
+    const { user } = renderApp('/settings')
+    for (const name of ['Alex', 'Sam']) {
+      const region = await screen.findByRole('region', { name })
+      await user.click(within(region).getByRole('button', { name: `Save ${name}` }))
+      expect(await within(region).findByText('Saved')).toBeInTheDocument()
+    }
+  })
+})

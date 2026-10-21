@@ -22,7 +22,7 @@ export function personToRow(p: Person): Row {
     monthly_fskatt: p.monthlyFskatt, has_occupational_pension: p.hasOccupationalPension, housing: p.housing,
     bankgiro: p.bankgiro, iban: p.iban, bic: p.bic, invoice_prefix: p.invoicePrefix, next_invoice_number: p.nextInvoiceNumber,
     payment_terms_days: p.paymentTermsDays, hourly_rate: p.hourlyRate, base_fee: p.baseFee,
-    commission_percent: p.commissionPercent, default_client_name: p.defaultClientName,
+    commission_percent: p.commissionPercent, default_client_name: p.defaultClientName, default_currency: p.defaultCurrency,
   }
 }
 
@@ -38,6 +38,7 @@ export function personFromRow(r: Row): Person {
     invoicePrefix: str(r.invoice_prefix), nextInvoiceNumber: num(r.next_invoice_number),
     paymentTermsDays: num(r.payment_terms_days), hourlyRate: num(r.hourly_rate), baseFee: num(r.base_fee),
     commissionPercent: num(r.commission_percent), defaultClientName: str(r.default_client_name),
+    defaultCurrency: (str(r.default_currency) || 'SEK') as Currency,
   }
 }
 
@@ -60,7 +61,8 @@ function lineFromRow(r: Row): InvoiceLine {
   const common = { id: str(r.id), description: str(r.description), vatRate: num(r.vat_rate) }
   switch (r.kind) {
     case 'time': {
-      const line: InvoiceLine = { ...common, kind: 'time', workDate: str(r.work_date), minutes: num(r.minutes), hourlyRate: num(r.hourly_rate) }
+      const hourlyRate = r.hourly_rate === null || r.hourly_rate === undefined ? null : num(r.hourly_rate)
+      const line: InvoiceLine = { ...common, kind: 'time', workDate: str(r.work_date), minutes: num(r.minutes), hourlyRate }
       const entry = optional(r.time_entry_id)
       return entry ? { ...line, timeEntryId: entry } : line
     }
@@ -78,7 +80,7 @@ export function invoiceToRpc(i: Invoice) {
       id: i.id, owner_id: i.ownerId, number: i.number, client_id: i.clientId, client_name: i.clientName,
       client_address: i.clientAddress ?? '', client_org_number: i.clientOrgNumber ?? '', client_vat_number: i.clientVatNumber ?? '',
       issue_date: i.issueDate, due_date: i.dueDate, currency: i.currency, fx_rate_to_sek: i.fxRateToSek,
-      vat_treatment: i.vatTreatment, status: i.status, paid_date: i.paidDate, paid_amount: i.paidAmount,
+      vat_treatment: i.vatTreatment, status: i.status, paid_date: i.paidDate, paid_amount: i.paidAmount, paid_amount_sek: i.paidAmountSek ?? null,
       credits_invoice_id: i.creditsInvoiceId, notes: i.notes,
     },
     p_lines: i.lines.map(lineToRow),
@@ -97,6 +99,7 @@ export function invoiceFromRow(r: Row): Invoice {
     currency: str(r.currency) as Currency, fxRateToSek: num(r.fx_rate_to_sek), vatTreatment: str(r.vat_treatment) as VatTreatment,
     status: str(r.status) as InvoiceRecordStatus, paidDate: nullable(r.paid_date),
     paidAmount: r.paid_amount === null || r.paid_amount === undefined ? null : num(r.paid_amount),
+    paidAmountSek: r.paid_amount_sek === null || r.paid_amount_sek === undefined ? null : num(r.paid_amount_sek),
     creditsInvoiceId: nullable(r.credits_invoice_id), notes: str(r.notes), lines,
   }
 }

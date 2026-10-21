@@ -6,6 +6,7 @@ import type { Person } from '../domain/person'
 import type { TaxYearParams } from '../domain/tax/params'
 import type { TimeEntry } from '../domain/timesheet'
 import { buildNewInvoice } from '../features/invoices/newInvoice'
+import { fetchRateToSek } from './fx'
 import type { Repository } from './repository'
 
 export const keys = {
@@ -78,8 +79,8 @@ export const useDeleteDraft = () => useRepoMutation((repo, id: string) => repo.d
 export function useSetPaid() {
   const today = useToday()
   return useRepoMutation(
-    (repo, input: { invoice: Invoice; paid: boolean; date?: string; amount?: number }) =>
-      repo.saveInvoice(input.paid ? recordPayment(input.invoice, input.date ?? today, input.amount) : markUnpaid(input.invoice)),
+    (repo, input: { invoice: Invoice; paid: boolean; date?: string; amount?: number; amountSek?: number | null }) =>
+      repo.saveInvoice(input.paid ? recordPayment(input.invoice, input.date ?? today, input.amount, input.amountSek) : markUnpaid(input.invoice)),
     (input) => invoiceKeys(input.invoice),
   )
 }
@@ -88,7 +89,15 @@ export function useCreateInvoice() {
   const today = useToday()
   return useRepoMutation(async (repo, person: Person) => {
     const entries = await repo.listTimeEntries()
-    const { invoice, timeEntryIds } = buildNewInvoice(person, { today, unbilled: entries })
+    let fxRateToSek: number | undefined
+    if (person.defaultCurrency !== 'SEK') {
+      // Today's Riksbank rate as a starting point; the SEK actually received is entered on payment.
+      fxRateToSek = await fetchRateToSek(person.defaultCurrency, today).catch(async () => {
+        const previous = (await repo.listInvoices()).find((i) => i.ownerId === person.id && i.currency === person.defaultCurrency)
+        return previous?.fxRateToSek ?? 1
+      })
+    }
+    const { invoice, timeEntryIds } = buildNewInvoice(person, { today, unbilled: entries, fxRateToSek })
     const saved = await repo.saveInvoice(invoice)
     if (timeEntryIds.length) await repo.setTimeEntriesInvoice(timeEntryIds, saved.id)
     return saved

@@ -56,7 +56,7 @@ export function InvoiceDocument({ invoice, person, label = 'Invoice' }: { invoic
                 <p className="text-xs text-muted">{lineDetail(line, invoice.currency)}</p>
               </td>
               {showVat && <td className="py-2 text-right text-muted">{line.vatRate}%</td>}
-              <td className="py-2 text-right tabular-nums">{formatMoney(lineNet(line, invoice.currency))}</td>
+              <td className="py-2 text-right tabular-nums">{line.kind === 'time' && line.hourlyRate === null ? '' : formatMoney(lineNet(line, invoice.currency))}</td>
             </tr>
           ))}
         </tbody>

@@ -46,3 +46,16 @@ describe('supabase mappers', () => {
     expect(expenseFromRow(expenseToRow(seed.expenses[0]))).toEqual(seed.expenses[0])
   })
 })
+
+describe('mapping the new invoice fields', () => {
+  it('keeps time-only lines (no hourly rate) and the SEK received', () => {
+    const invoice: Invoice = {
+      ...seed.invoices[0], currency: 'USD', fxRateToSek: 10.4, paidDate: '2026-10-30', paidAmount: 100_000, paidAmountSek: 1_032_500,
+      lines: [{ id: 'l1', kind: 'time', description: 'Mon 19 Oct · Contract', workDate: '2026-10-19', minutes: 390, hourlyRate: null, vatRate: 25 }],
+    }
+    const { p_invoice, p_lines } = invoiceToRpc(invoice)
+    expect(p_invoice.paid_amount_sek).toBe(1_032_500)
+    expect(p_lines[0].hourly_rate).toBeNull()
+    expect(invoiceFromRow({ ...p_invoice, invoice_lines: p_lines.map((l, position) => ({ ...l, position })) })).toEqual(invoice)
+  })
+})

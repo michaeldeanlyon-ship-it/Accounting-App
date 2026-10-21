@@ -79,3 +79,14 @@ describe('VAT threshold', () => {
     expect(vatThresholdStatus(120_000, 120_000).level).toBe('exceeded')
   })
 })
+
+describe('foreign invoices paid in SEK', () => {
+  it('counts the SEK that actually arrived as paid this month', () => {
+    const usd = inv({
+      id: 'usd', ownerId: 'sam', currency: 'USD', fxRateToSek: 10, dueDate: '2026-10-20', paidDate: '2026-10-21', paidAmount: 100_000, paidAmountSek: 1_032_500,
+      lines: [{ id: 'l', kind: 'fixed', description: 'Base', quantity: 1, unit: 'st', unitPrice: 100_000, vatRate: 0 }],
+    })
+    expect(dashboardKpis([usd], today).paidThisMonth).toEqual(money(1_032_500, 'SEK'))
+    expect(cashInByMonth([usd], ['2026-10'])[0].paid).toEqual({ sam: 1_032_500 })
+  })
+})

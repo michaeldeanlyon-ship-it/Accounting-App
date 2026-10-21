@@ -15,13 +15,13 @@ export interface Seed {
 const basePerson = {
   address: '', phone: '', vatNumber: '', vatPeriod: 'quarterly', accountingMethod: 'cash', municipalRate: 32.38,
   employmentIncome: 0, hasOccupationalPension: false, housing: 'apartment', bankgiro: '', iban: '', bic: '',
-  paymentTermsDays: 30, hourlyRate: 0, baseFee: 0, commissionPercent: 0, defaultClientName: '',
+  paymentTermsDays: 30, hourlyRate: 0, baseFee: 0, commissionPercent: 0, defaultClientName: '', defaultCurrency: 'SEK',
 } as const
 
 function invoice(over: Partial<Invoice> & Pick<Invoice, 'id' | 'ownerId' | 'number' | 'lines'>): Invoice {
   return {
     clientId: null, clientName: '', issueDate: '', dueDate: '', currency: 'SEK', fxRateToSek: 1, vatTreatment: 'domestic',
-    status: 'sent', paidDate: null, paidAmount: null, creditsInvoiceId: null, notes: '', ...over,
+    status: 'sent', paidDate: null, paidAmount: null, paidAmountSek: null, creditsInvoiceId: null, notes: '', ...over,
   }
 }
 
@@ -44,15 +44,15 @@ export function demoSeed(today: IsoDate): Seed {
   const people: Person[] = [
     {
       ...basePerson, id: 'alex', displayName: 'Alex', roleTitle: 'Translator', workStyle: 'hourly', color: '#7c3aed',
-      businessName: 'Alex Översättning', orgNumber: '19881218-9876', email: 'alex@example.com', vatRegistered: true,
-      vatNumber: 'SE881218987601', birthYear: 1988, monthlyFskatt: 7_000, bankgiro: '123-4567', invoicePrefix: 'A',
+      businessName: 'Alex Översättning', orgNumber: '19811218-9876', email: 'alex@example.com', vatRegistered: true,
+      vatNumber: 'SE811218987601', birthYear: 1981, monthlyFskatt: 7_000, bankgiro: '123-4567', invoicePrefix: 'A',
       nextInvoiceNumber: 45, hourlyRate: 65_000, defaultClientName: 'Nordic Lingua AB',
     },
     {
       ...basePerson, id: 'sam', displayName: 'Sam', roleTitle: 'Sales contractor', workStyle: 'base_commission', color: '#0d9488',
       businessName: 'Sam Sales Consulting', orgNumber: '19900101-0017', email: 'sam@example.com', vatRegistered: false,
       birthYear: 1990, monthlyFskatt: 2_000, bankgiro: '765-4321', invoicePrefix: 'S', nextInvoiceNumber: 19,
-      baseFee: 1_000_000, commissionPercent: 5, defaultClientName: 'Brightsale AB', paymentTermsDays: 15,
+      baseFee: 1_000_000, commissionPercent: 5, defaultClientName: 'Brightsale AB', paymentTermsDays: 15, defaultCurrency: 'USD',
     },
   ]
 

@@ -30,12 +30,12 @@ test('the translator turns logged days into a numbered invoice', async ({ page }
   await expect(page.getByRole('list', { name: 'Incoming payments' }).getByText(/A-0045/)).toBeVisible()
 })
 
-test('the sales contractor bills base fee plus commission', async ({ page }) => {
+test('the sales contractor bills base fee plus a commission amount in USD', async ({ page }) => {
   await page.goto('/people/sam/invoices')
   await page.getByRole('button', { name: 'New invoice' }).click()
   await expect(page.getByRole('heading', { name: 'Draft invoice' })).toBeVisible()
-  await page.getByRole('group', { name: 'Line 2' }).getByLabel('Sales amount (kr)').fill('45000')
-  await expect(page.getByTestId('total-gross')).toHaveText('12 250,00 kr')
+  await page.getByRole('group', { name: 'Line 2' }).getByLabel('Amount (USD)').fill('2250')
+  await expect(page.getByTestId('total-gross')).toHaveText(/12,250.00/)
   await page.getByRole('button', { name: 'Save and mark as sent' }).click()
   await expect(page.getByRole('heading', { name: 'Invoice S-0019' })).toBeVisible()
 })

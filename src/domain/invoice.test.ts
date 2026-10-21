@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   lineNet, lineDetail, invoiceTotals, invoiceStatus, dueDateFromTerms, createCreditNote,
-  salesPeriodFor, salesInvoiceLines, timeLinesFromEntries, recordPayment, markUnpaid, validateForSending,
+  salesPeriodFor, salesInvoiceLines, timeLinesFromEntries, recordPayment, markUnpaid, validateForSending, receivedSek, receivedNetSek,
   type Invoice, type InvoiceLine,
 } from './invoice'
 import { money } from './money'
@@ -124,11 +124,11 @@ describe('dates and periods', () => {
 })
 
 describe('building invoices', () => {
-  it('pre-fills the sales invoice with base fee and an editable commission line', () => {
-    const lines = salesInvoiceLines({ baseFee: 1000000, periodLabel: '16–31 Oct', commissionPercent: 5, vatRate: 0 })
+  it('pre-fills the sales invoice with base fee and a commission amount to type in', () => {
+    const lines = salesInvoiceLines({ baseFee: 1000000, periodLabel: '16–31 Oct', vatRate: 0 })
     expect(lines).toHaveLength(2)
     expect(lines[0]).toMatchObject({ kind: 'fixed', description: 'Base fee 16–31 Oct', quantity: 1, unitPrice: 1000000 })
-    expect(lines[1]).toMatchObject({ kind: 'commission', description: 'Commission 16–31 Oct', salesBase: 0, percent: 5 })
+    expect(lines[1]).toMatchObject({ kind: 'fixed', description: 'Commission 16–31 Oct', quantity: 1, unitPrice: 0 })
   })
 
   it('makes one time line per day, in date order, linked to the entry', () => {
@@ -160,5 +160,51 @@ describe('validation before sending', () => {
       'Add at least one line',
       'Due date must be on or after the issue date',
     ])
+  })
+})
+
+describe('time-only lines (total amount typed separately)', () => {
+  const timeOnly: InvoiceLine = { id: 't', kind: 'time', description: 'Mon 19 Oct · Contract', workDate: '2026-10-19', minutes: 390, hourlyRate: null, vatRate: 25 }
+  const total: InvoiceLine = { id: 'f', kind: 'fixed', description: 'Translation services', quantity: 1, unit: 'st', unitPrice: 1_000_000, vatRate: 25 }
+
+  it('shows the time but adds no amount', () => {
+    expect(lineNet(timeOnly, 'SEK')).toEqual(money(0, 'SEK'))
+    expect(lineDetail(timeOnly, 'SEK')).toBe('6 h 30 min')
+  })
+
+  it('totals the time while the amount comes from the total line', () => {
+    const t = invoiceTotals(invoice({ lines: [timeOnly, { ...timeOnly, id: 't2', minutes: 300 }, total] }))
+    expect(t.totalMinutes).toBe(690)
+    expect(t.net).toEqual(money(1_000_000, 'SEK'))
+    expect(t.gross).toEqual(money(1_250_000, 'SEK'))
+  })
+})
+
+describe('money actually received in SEK', () => {
+  const usd = invoice({
+    currency: 'USD', fxRateToSek: 10.5, vatTreatment: 'exempt',
+    lines: [{ id: 'b', kind: 'fixed', description: 'Base fee', quantity: 1, unit: 'st', unitPrice: 100_000, vatRate: 0 }],
+  })
+
+  it('stores the SEK amount that reached the bank', () => {
+    const paid = recordPayment(usd, '2026-10-30', undefined, 1_032_500)
+    expect(paid.paidAmountSek).toBe(1_032_500)
+    expect(receivedSek(paid)).toEqual(money(1_032_500, 'SEK'))
+  })
+
+  it('falls back to the invoice rate when no SEK amount is given', () => {
+    expect(receivedSek(recordPayment(usd, '2026-10-30'))).toEqual(money(1_050_000, 'SEK'))
+  })
+
+  it('is zero while unpaid and is cleared when marked unpaid', () => {
+    expect(receivedSek(usd)).toEqual(money(0, 'SEK'))
+    const undone = markUnpaid(recordPayment(usd, '2026-10-30', undefined, 1_000_000))
+    expect(undone.paidAmountSek).toBeNull()
+  })
+
+  it('splits out the part that is income, excluding moms', () => {
+    const domestic = recordPayment(invoice({ lines: [{ id: 'x', kind: 'fixed', description: 'Work', quantity: 1, unit: 'st', unitPrice: 1_000_000, vatRate: 25 }] }), '2026-10-30')
+    expect(receivedNetSek(domestic)).toEqual(money(1_000_000, 'SEK'))
+    expect(receivedNetSek(recordPayment(usd, '2026-10-30', undefined, 1_032_500))).toEqual(money(1_032_500, 'SEK'))
   })
 })
