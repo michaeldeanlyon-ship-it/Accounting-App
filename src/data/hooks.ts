@@ -76,13 +76,32 @@ export const useSendInvoice = () =>
 
 export const useDeleteDraft = () => useRepoMutation((repo, id: string) => repo.deleteDraft(id), () => invoiceKeys())
 
+type SetPaidInput = { invoice: Invoice; paid: boolean; date?: string; amount?: number; amountSek?: number | null }
+
+/** Marks an invoice paid or unpaid. The screen updates at once and rolls back if saving fails. */
 export function useSetPaid() {
   const today = useToday()
-  return useRepoMutation(
-    (repo, input: { invoice: Invoice; paid: boolean; date?: string; amount?: number; amountSek?: number | null }) =>
-      repo.saveInvoice(input.paid ? recordPayment(input.invoice, input.date ?? today, input.amount, input.amountSek) : markUnpaid(input.invoice)),
-    (input) => invoiceKeys(input.invoice),
-  )
+  const repo = useRepository()
+  const client = useQueryClient()
+  const apply = (input: SetPaidInput) =>
+    input.paid ? recordPayment(input.invoice, input.date ?? today, input.amount, input.amountSek) : markUnpaid(input.invoice)
+
+  return useMutation({
+    mutationFn: (input: SetPaidInput) => repo.saveInvoice(apply(input)),
+    onMutate: async (input: SetPaidInput) => {
+      await client.cancelQueries({ queryKey: keys.invoices })
+      const before = client.getQueryData<Invoice[]>(keys.invoices)
+      const updated = apply(input)
+      client.setQueryData<Invoice[]>(keys.invoices, (list) => list?.map((i) => (i.id === updated.id ? updated : i)))
+      return { before }
+    },
+    onError: (_error, _input, context) => {
+      if (context?.before) client.setQueryData(keys.invoices, context.before)
+    },
+    onSettled: async (_result, _error, input) => {
+      await Promise.all(invoiceKeys(input.invoice).map((queryKey) => client.invalidateQueries({ queryKey })))
+    },
+  })
 }
 
 export function useCreateInvoice() {

@@ -1,6 +1,6 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { renderApp } from '../../test/renderApp'
+import { memoryRepo, renderApp } from '../../test/renderApp'
 
 const kpi = (label: string) => screen.getByRole('group', { name: label })
 
@@ -64,5 +64,31 @@ describe('Dashboard', () => {
     const deadlines = await screen.findByRole('list', { name: 'Upcoming deadlines' })
     expect(within(deadlines).getByText('Moms return Q3 (Jul–Sep)')).toBeInTheDocument()
     expect(within(deadlines).getAllByText('F-skatt instalment').length).toBeGreaterThan(0)
+  })
+})
+
+describe('Paid tick feels instant', () => {
+  it('shows the tick straight away while the save is still running', async () => {
+    const repo = memoryRepo()
+    let release: () => void = () => {}
+    const original = repo.saveInvoice.bind(repo)
+    repo.saveInvoice = async (invoice) => {
+      await new Promise<void>((resolve) => { release = resolve })
+      return original(invoice)
+    }
+    const { user } = renderApp('/', { repo })
+    const box = await screen.findByRole('checkbox', { name: 'Mark A-0042 as paid' })
+    await user.click(box)
+    expect(screen.getByRole('checkbox', { name: 'Mark A-0042 as paid' })).toBeChecked()
+    release()
+    expect(await screen.findByRole('group', { name: 'Overdue' })).toHaveTextContent('12 500 kr')
+  })
+
+  it('undoes the tick if saving fails', async () => {
+    const repo = memoryRepo()
+    repo.saveInvoice = async () => { throw new Error('Network down') }
+    const { user } = renderApp('/', { repo })
+    await user.click(await screen.findByRole('checkbox', { name: 'Mark A-0042 as paid' }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Mark A-0042 as paid' })).not.toBeChecked())
   })
 })
