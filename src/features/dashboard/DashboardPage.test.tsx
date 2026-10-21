@@ -1,0 +1,54 @@
+import { screen, within } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { renderApp } from '../../test/renderApp'
+
+const kpi = (label: string) => screen.getByRole('group', { name: label })
+
+describe('Dashboard', () => {
+  it('shows money expected, overdue and paid at a glance', async () => {
+    renderApp('/')
+    await screen.findByRole('heading', { name: 'Dashboard' })
+    expect(await screen.findByRole('group', { name: 'Overdue' })).toHaveTextContent('31 188 kr')
+    expect(kpi('Expected in the next 30 days')).toHaveTextContent('89 450 kr')
+    expect(kpi('Paid this month')).toBeInTheDocument()
+    expect(kpi('Tax to set aside')).toHaveTextContent(/Alex/)
+  })
+
+  it('marks a payment as paid with one click and can undo it', async () => {
+    const { user } = renderApp('/')
+    const box = await screen.findByRole('checkbox', { name: 'Mark A-0042 as paid' })
+    await user.click(box)
+    expect(await screen.findByRole('group', { name: 'Overdue' })).toHaveTextContent('12 500 kr')
+    const row = screen.getByRole('checkbox', { name: 'Mark A-0042 as paid' }).closest('li')!
+    expect(within(row).getByTestId('payment-status')).toHaveTextContent('Paid')
+    await user.click(screen.getByRole('checkbox', { name: 'Mark A-0042 as paid' }))
+    expect(await screen.findByRole('group', { name: 'Overdue' })).toHaveTextContent('31 188 kr')
+  })
+
+  it('lists incoming payments soonest first and links to the invoice', async () => {
+    renderApp('/')
+    const list = await screen.findByRole('list', { name: 'Incoming payments' })
+    const first = within(list).getAllByRole('listitem')[0]
+    expect(first).toHaveTextContent('A-0042')
+    expect(within(first).getByRole('link', { name: /Nordic Lingua AB/ })).toHaveAttribute('href', '/people/alex/invoices/alex-42')
+  })
+
+  it('filters everything to one person', async () => {
+    const { user } = renderApp('/')
+    await user.click(await screen.findByRole('button', { name: 'Sam' }))
+    expect(await screen.findByRole('group', { name: 'Overdue' })).toHaveTextContent('12 500 kr')
+    expect(within(screen.getByRole('list', { name: 'Incoming payments' })).queryByText(/A-00/)).toBeNull()
+  })
+
+  it('warns when the person without VAT is approaching the limit', async () => {
+    renderApp('/')
+    expect(await screen.findByText(/Sam has invoiced/)).toBeInTheDocument()
+  })
+
+  it('shows upcoming Skatteverket deadlines', async () => {
+    renderApp('/')
+    const deadlines = await screen.findByRole('list', { name: 'Upcoming deadlines' })
+    expect(within(deadlines).getByText('Moms return Q3 (Jul–Sep)')).toBeInTheDocument()
+    expect(within(deadlines).getAllByText('F-skatt instalment').length).toBeGreaterThan(0)
+  })
+})
