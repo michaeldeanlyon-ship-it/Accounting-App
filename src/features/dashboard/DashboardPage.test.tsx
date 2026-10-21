@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { memoryRepo, renderApp } from '../../test/renderApp'
 
@@ -82,6 +82,13 @@ describe('Paid tick feels instant', () => {
     expect(screen.getByRole('checkbox', { name: 'Mark A-0042 as paid' })).toBeChecked()
     release()
     expect(await screen.findByRole('group', { name: 'Overdue' })).toHaveTextContent('12 500 kr')
+  })
+
+  it('is ticked in the same moment as the click, before anything async runs', async () => {
+    renderApp('/')
+    const box = await screen.findByRole('checkbox', { name: 'Mark A-0042 as paid' })
+    fireEvent.click(box)
+    expect(screen.getByRole('checkbox', { name: 'Mark A-0042 as paid' })).toBeChecked()
   })
 
   it('undoes the tick if saving fails', async () => {

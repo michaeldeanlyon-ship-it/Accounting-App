@@ -6,7 +6,7 @@ import { cashInByMonth, dashboardKpis, incomingPayments, turnoverForYear, vatThr
 import { addDays, formatShortDate, monthKey, parseIso, yearOf, type IsoDate } from '../../domain/dates'
 import { upcomingDeadlines } from '../../domain/deadlines'
 import { formatDuration } from '../../domain/duration'
-import { invoiceTotals, receivedSek } from '../../domain/invoice'
+import { invoiceTotals, receivedSek, type Invoice } from '../../domain/invoice'
 import { formatMoney, money } from '../../domain/money'
 import { useDeductions, useExpenses, useInvoices, usePeople, useSetPaid, useTaxParams } from '../../data/hooks'
 import { personTaxSummary } from '../tax/taxModel'
@@ -30,7 +30,6 @@ export function DashboardPage() {
   const expenses = useExpenses()
   const deductions = useDeductions()
   const params = useTaxParams(yearOf(today))
-  const setPaid = useSetPaid()
   const [filter, setFilter] = useState<string>('all')
   const [showOlder, setShowOlder] = useState(false)
 
@@ -153,16 +152,7 @@ export function DashboardPage() {
                     </div>
                     <span className="shrink-0 text-right font-semibold tabular-nums sm:w-28">{kr(paid ? receivedSek(invoice).amount : outstandingSek.amount)}</span>
                     <span className="hidden w-20 text-right sm:block"><StatusPill status={status} testId="payment-status" /></span>
-                    <label className="flex shrink-0 cursor-pointer items-center justify-end gap-1.5 text-sm text-muted sm:w-16">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 accent-[var(--color-accent)]"
-                        aria-label={`Mark ${invoice.number} as paid`}
-                        checked={paid}
-                        onChange={(e) => setPaid.mutate({ invoice, paid: e.target.checked })}
-                      />
-                      <span aria-hidden="true">Paid</span>
-                    </label>
+                    <PaidCheckbox invoice={invoice} paid={paid} />
                   </li>
                 )
               })}
@@ -195,5 +185,26 @@ export function DashboardPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+/** The one-click Paid tick. Shows the new state the moment it's clicked, until the save settles. */
+function PaidCheckbox({ invoice, paid }: { invoice: Invoice; paid: boolean }) {
+  const setPaid = useSetPaid()
+  const [pending, setPending] = useState<boolean | null>(null)
+  return (
+    <label className="flex shrink-0 cursor-pointer items-center justify-end gap-1.5 text-sm text-muted sm:w-16">
+      <input
+        type="checkbox"
+        className="h-4 w-4 accent-[var(--color-accent)]"
+        aria-label={`Mark ${invoice.number} as paid`}
+        checked={pending ?? paid}
+        onChange={(e) => {
+          setPending(e.target.checked)
+          setPaid.mutate({ invoice, paid: e.target.checked }, { onSettled: () => setPending(null) })
+        }}
+      />
+      <span aria-hidden="true">Paid</span>
+    </label>
   )
 }
