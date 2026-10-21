@@ -15,7 +15,7 @@ export interface Seed {
 const basePerson = {
   address: '', phone: '', vatNumber: '', vatPeriod: 'quarterly', accountingMethod: 'cash', municipalRate: 32.38,
   employmentIncome: 0, hasOccupationalPension: false, housing: 'apartment', bankgiro: '', iban: '', bic: '',
-  paymentTermsDays: 30, hourlyRate: 0, baseFee: 0, commissionPercent: 0, defaultClientName: '', defaultCurrency: 'SEK',
+  paymentTermsDays: 30, hourlyRate: 0, baseFee: 0, commissionPercent: 0, defaultClientName: '', defaultCurrency: 'SEK', defaultVatTreatment: 'domestic',
 } as const
 
 function invoice(over: Partial<Invoice> & Pick<Invoice, 'id' | 'ownerId' | 'number' | 'lines'>): Invoice {
@@ -52,7 +52,7 @@ export function demoSeed(today: IsoDate): Seed {
       ...basePerson, id: 'sam', displayName: 'Sam', roleTitle: 'Sales contractor', workStyle: 'base_commission', color: '#0d9488',
       businessName: 'Sam Sales Consulting', orgNumber: '19900101-0017', email: 'sam@example.com', vatRegistered: false,
       birthYear: 1990, monthlyFskatt: 2_000, bankgiro: '765-4321', invoicePrefix: 'S', nextInvoiceNumber: 19,
-      baseFee: 1_000_000, commissionPercent: 5, defaultClientName: 'Brightsale AB', paymentTermsDays: 15, defaultCurrency: 'USD',
+      baseFee: 1_000_000, commissionPercent: 5, defaultClientName: 'Brightsale AB', paymentTermsDays: 15, defaultCurrency: 'USD', defaultVatTreatment: 'export',
     },
   ]
 

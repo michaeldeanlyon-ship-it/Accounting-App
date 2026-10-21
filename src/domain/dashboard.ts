@@ -1,6 +1,7 @@
 import { addDays, monthKey, yearOf, type IsoDate } from './dates'
 import { invoiceStatus, invoiceTotals, receivedSek, type Invoice, type InvoiceStatus } from './invoice'
 import { convertToSek, money, sumMoney, type Money } from './money'
+import { countsTowardsVatLimit } from './vat'
 
 /** Invoices that represent money owed: sent (or part paid / paid), not drafts or cancelled ones. */
 function isLive(invoice: Invoice): boolean {
@@ -91,9 +92,14 @@ export function cashInByMonth(invoices: readonly Invoice[], months: readonly str
   return result
 }
 
-/** Net sales (excluding VAT) invoiced in a year, whole kronor in SEK. Credit notes count negative. */
+/**
+ * Net sales (excluding VAT) taxable in Sweden invoiced in a year, whole kronor in SEK. This is the turnover
+ * measured against the VAT limit; sales placed outside Sweden are left out. Credit notes count negative.
+ */
 export function turnoverForYear(invoices: readonly Invoice[], ownerId: string, year: number): number {
-  const counted = invoices.filter((i) => i.ownerId === ownerId && i.status !== 'draft' && yearOf(i.issueDate) === year)
+  const counted = invoices.filter(
+    (i) => i.ownerId === ownerId && i.status !== 'draft' && yearOf(i.issueDate) === year && countsTowardsVatLimit(i.vatTreatment),
+  )
   return Math.round(sumMoney(counted.map((i) => invoiceTotals(i).netSek), 'SEK').amount / 100)
 }
 

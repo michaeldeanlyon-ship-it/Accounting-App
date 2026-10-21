@@ -55,3 +55,16 @@ describe('Demo data', () => {
     }
   })
 })
+
+describe('Usual VAT on invoices', () => {
+  it('offers only the choices that fit, and saves a sale outside Sweden', async () => {
+    const { user, repo } = renderApp('/settings')
+    const sam = await screen.findByRole('region', { name: 'Sam' })
+    const select = within(sam).getByLabelText('Usual VAT on invoices')
+    expect(within(select).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual(['exempt', 'export'])
+    await user.selectOptions(select, 'exempt')
+    await user.click(within(sam).getByRole('button', { name: 'Save Sam' }))
+    await within(sam).findByText('Saved')
+    expect((await repo.listPeople()).find((p) => p.id === 'sam')?.defaultVatTreatment).toBe('exempt')
+  })
+})

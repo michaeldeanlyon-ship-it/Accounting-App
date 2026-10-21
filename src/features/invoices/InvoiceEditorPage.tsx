@@ -9,7 +9,7 @@ import { formatDuration } from '../../domain/duration'
 import { invoiceStatus, invoiceTotals, lineNet, validateForSending, type Invoice, type InvoiceLine } from '../../domain/invoice'
 import { CURRENCIES, formatMoney, money, type Currency } from '../../domain/money'
 import type { Person } from '../../domain/person'
-import { legalNotes, VAT_RATES, VAT_TREATMENT_LABELS, VAT_TREATMENTS, type VatTreatment } from '../../domain/vat'
+import { allowedVatTreatments, legalNotes, VAT_RATES, VAT_TREATMENT_LABELS, type VatTreatment } from '../../domain/vat'
 import { fetchRateToSek } from '../../data/fx'
 import { useAuditLog, useCreditInvoice, useDeleteDraft, useInvoices, useSaveInvoice, useSendInvoice, useSetPaid } from '../../data/hooks'
 import { NotFoundPage } from '../NotFoundPage'
@@ -156,7 +156,9 @@ function InvoiceEditor({ invoice, person, clientNames }: { invoice: Invoice; per
   }
 
   const title = isDraft ? 'Draft invoice' : isCredit ? `Credit note ${saved.number}` : `Invoice ${saved.number}`
-  const treatments = VAT_TREATMENTS.filter((t) => t !== 'exempt')
+  const treatments = allowedVatTreatments(person.vatRegistered).concat(
+    allowedVatTreatments(person.vatRegistered).includes(draft.vatTreatment) ? [] : [draft.vatTreatment],
+  )
 
   return (
     <div className="space-y-6">
@@ -220,13 +222,18 @@ function InvoiceEditor({ invoice, person, clientNames }: { invoice: Invoice; per
             </Field>
           )}
           <Field label="VAT (moms)" className="sm:col-span-2">
-            {person.vatRegistered ? (
-              <select className={inputClass} value={draft.vatTreatment} onChange={(e) => update({ vatTreatment: e.target.value as VatTreatment })}>
-                {treatments.map((t) => <option key={t} value={t}>{VAT_TREATMENT_LABELS[t]}</option>)}
-              </select>
-            ) : (
-              <p className="flex h-10 items-center text-sm text-muted">No VAT (momsbefriad). Turn on VAT in Settings if you register.</p>
-            )}
+            <select
+              className={inputClass}
+              value={draft.vatTreatment}
+              onChange={(e) => {
+                const vatTreatment = e.target.value as VatTreatment
+                // Moms only applies to domestic sales; keep line rates in step so the totals are right.
+                const vatRate = vatTreatment === 'domestic' ? 25 : 0
+                update({ vatTreatment, lines: draft.lines.map((l) => ({ ...l, vatRate })) })
+              }}
+            >
+              {treatments.map((t) => <option key={t} value={t}>{VAT_TREATMENT_LABELS[t]}</option>)}
+            </select>
           </Field>
         </div>
       </Card>

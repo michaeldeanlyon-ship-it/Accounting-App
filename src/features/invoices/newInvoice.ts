@@ -2,6 +2,7 @@ import type { IsoDate } from '../../domain/dates'
 import { dueDateFromTerms, salesInvoiceLines, salesPeriodFor, timeLinesFromEntries, type Invoice, type InvoiceLine } from '../../domain/invoice'
 import type { Person } from '../../domain/person'
 import type { TimeEntry } from '../../domain/timesheet'
+import { allowedVatTreatments } from '../../domain/vat'
 
 /**
  * A ready-to-edit draft for a person.
@@ -14,7 +15,9 @@ export function buildNewInvoice(person: Person, options: { today: IsoDate; unbil
   timeEntryIds: string[]
 } {
   const { today } = options
-  const vatRate = person.vatRegistered ? 25 : 0
+  const allowed = allowedVatTreatments(person.vatRegistered)
+  const vatTreatment = allowed.includes(person.defaultVatTreatment) ? person.defaultVatTreatment : allowed[0]
+  const vatRate = vatTreatment === 'domestic' ? 25 : 0
   const currency = person.defaultCurrency
   let lines: InvoiceLine[]
   let timeEntryIds: string[] = []
@@ -45,7 +48,7 @@ export function buildNewInvoice(person: Person, options: { today: IsoDate; unbil
       dueDate: dueDateFromTerms(today, person.paymentTermsDays),
       currency,
       fxRateToSek: currency === 'SEK' ? 1 : (options.fxRateToSek ?? 1),
-      vatTreatment: person.vatRegistered ? 'domestic' : 'exempt',
+      vatTreatment,
       status: 'draft',
       paidDate: null,
       paidAmount: null,

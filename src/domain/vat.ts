@@ -28,6 +28,19 @@ export function isEuCountry(countryCode: string): boolean {
   return EU_COUNTRIES.has(countryCode.toUpperCase())
 }
 
+/** The VAT choices that make sense for a seller. */
+export function allowedVatTreatments(sellerVatRegistered: boolean): VatTreatment[] {
+  return sellerVatRegistered ? ['domestic', 'eu_reverse_charge', 'export'] : ['exempt', 'export']
+}
+
+/**
+ * Whether a sale is taxable in Sweden and so counts towards the 120,000 kr limit for not charging moms.
+ * Services to businesses abroad have their place of supply outside Sweden and don't count.
+ */
+export function countsTowardsVatLimit(treatment: VatTreatment): boolean {
+  return treatment === 'domestic' || treatment === 'exempt'
+}
+
 export function effectiveVatRate(treatment: VatTreatment, lineRate: number): number {
   return treatment === 'domestic' ? lineRate : 0
 }

@@ -42,7 +42,8 @@ describe('Invoice editor', () => {
     const commission = within(line(2)).getByLabelText('Amount (USD)')
     await user.type(commission, '2250')
     expect(screen.getByTestId('total-gross')).toHaveTextContent(/12,250.00/)
-    expect(screen.getAllByText(/Momsbefriad/).length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('VAT (moms)')).toHaveValue('export')
+    expect(screen.getAllByText(/Place of supply outside Sweden/).length).toBeGreaterThan(0)
   })
 
   it('records the SEK that actually arrived for a USD invoice', async () => {

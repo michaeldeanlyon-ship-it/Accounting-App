@@ -30,7 +30,7 @@ describe('buildNewInvoice', () => {
 
   it('fills a sales invoice with base fee and a commission amount, in the usual currency', () => {
     const { invoice } = buildNewInvoice({ ...sam, defaultCurrency: 'USD' }, { today: '2026-10-21', unbilled: [], fxRateToSek: 10.4 })
-    expect(invoice).toMatchObject({ currency: 'USD', fxRateToSek: 10.4, vatTreatment: 'exempt', dueDate: '2026-11-05' })
+    expect(invoice).toMatchObject({ currency: 'USD', fxRateToSek: 10.4, vatTreatment: 'export', dueDate: '2026-11-05' })
     expect(invoice.lines.map((l) => l.description)).toEqual(['Base fee 16–31 Oct', 'Commission 16–31 Oct'])
     expect(invoice.lines[0]).toMatchObject({ kind: 'fixed', unitPrice: 1_000_000 })
     expect(invoice.lines[1]).toMatchObject({ kind: 'fixed', quantity: 1, unitPrice: 0 })
@@ -39,5 +39,18 @@ describe('buildNewInvoice', () => {
   it('uses SEK and rate 1 for someone who invoices in kronor', () => {
     const { invoice } = buildNewInvoice(alex, { today: '2026-10-21', unbilled: [], fxRateToSek: 10.4 })
     expect(invoice).toMatchObject({ currency: 'SEK', fxRateToSek: 1 })
+  })
+})
+
+describe('usual VAT on new invoices', () => {
+  it('starts a sale to a US company as outside Sweden, without moms', () => {
+    const { invoice } = buildNewInvoice({ ...sam, defaultVatTreatment: 'export' }, { today: '2026-10-21', unbilled: [] })
+    expect(invoice.vatTreatment).toBe('export')
+    expect(invoice.lines.every((l) => l.vatRate === 0)).toBe(true)
+  })
+
+  it('ignores a usual choice that does not fit the seller', () => {
+    const { invoice } = buildNewInvoice({ ...sam, defaultVatTreatment: 'domestic' }, { today: '2026-10-21', unbilled: [] })
+    expect(invoice.vatTreatment).toBe('exempt')
   })
 })

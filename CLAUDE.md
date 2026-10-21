@@ -49,6 +49,8 @@ No production code is written without a failing test first.
 
 - Domestic reverse charge does not apply to translation or sales services. Swedish clients pay 25% moms. EU business clients: reverse charge (no VAT, mandatory text). Outside EU: no Swedish VAT.
 - Non-registered seller: invoices carry the momsbefriad text. Warn when turnover nears the 120,000 kr limit.
+- Services to a company outside the EU (Michael's US client) are `export`: place of supply outside Sweden, no Swedish moms, and **not counted** towards the 120,000 kr limit (`countsTowardsVatLimit`). Each person has a usual VAT choice (`defaultVatTreatment`).
+- Foreign-currency invoices: the SEK that actually reached the bank (`paidAmountSek`) is the income under kontantmetoden.
 - Default kontantmetoden (cash method): income and VAT are counted when paid.
 - Sent invoices can still be edited, but every change is written to `audit_log`. Credit notes are the clean correction.
 - Tax figures are estimates for planning. They don't replace the NE-bilaga or the deklaration.

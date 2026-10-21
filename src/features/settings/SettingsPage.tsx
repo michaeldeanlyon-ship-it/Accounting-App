@@ -10,6 +10,7 @@ import {
 } from '../../domain/person'
 import { CURRENCIES, type Currency } from '../../domain/money'
 import type { TaxYearParams } from '../../domain/tax/params'
+import { allowedVatTreatments, VAT_TREATMENT_LABELS, type VatTreatment } from '../../domain/vat'
 import { usePeople, useSavePerson, useSaveTaxParams, useTaxParams } from '../../data/hooks'
 
 export function SettingsPage() {
@@ -47,6 +48,7 @@ function PersonForm({ person }: { person: Person }) {
     setP((prev) => ({ ...prev, [key]: value }))
     setSaved(false)
   }
+  const vatChoices = allowedVatTreatments(p.vatRegistered)
   const text = (key: keyof Person) => ({ className: inputClass, value: String(p[key] ?? ''), onChange: (e: { target: { value: string } }) => set(key, e.target.value as never) })
 
   async function submit() {
@@ -58,7 +60,8 @@ function PersonForm({ person }: { person: Person }) {
     if (!(p.nextInvoiceNumber >= 1)) next.nextInvoiceNumber = 'Must be 1 or more'
     setErrors(next)
     if (Object.keys(next).length) return
-    await save.mutateAsync(p)
+    // After switching VAT registration, fall back to a VAT choice that fits.
+    await save.mutateAsync({ ...p, defaultVatTreatment: vatChoices.includes(p.defaultVatTreatment) ? p.defaultVatTreatment : vatChoices[0] })
     setSaved(true)
   }
 
@@ -93,6 +96,11 @@ function PersonForm({ person }: { person: Person }) {
               </Field>
             </>
           )}
+          <Field label="Usual VAT on invoices" hint="Pick 'Outside the EU' for a company in the USA. You can still change it per invoice.">
+            <select className={inputClass} value={vatChoices.includes(p.defaultVatTreatment) ? p.defaultVatTreatment : vatChoices[0]} onChange={(e) => set('defaultVatTreatment', e.target.value as VatTreatment)}>
+              {vatChoices.map((t) => <option key={t} value={t}>{VAT_TREATMENT_LABELS[t]}</option>)}
+            </select>
+          </Field>
           <Field label="Accounting method">
             <select className={inputClass} value={p.accountingMethod} onChange={(e) => set('accountingMethod', e.target.value as AccountingMethod)}>
               {Object.entries(ACCOUNTING_METHOD_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}

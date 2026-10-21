@@ -22,7 +22,7 @@ export function personToRow(p: Person): Row {
     monthly_fskatt: p.monthlyFskatt, has_occupational_pension: p.hasOccupationalPension, housing: p.housing,
     bankgiro: p.bankgiro, iban: p.iban, bic: p.bic, invoice_prefix: p.invoicePrefix, next_invoice_number: p.nextInvoiceNumber,
     payment_terms_days: p.paymentTermsDays, hourly_rate: p.hourlyRate, base_fee: p.baseFee,
-    commission_percent: p.commissionPercent, default_client_name: p.defaultClientName, default_currency: p.defaultCurrency,
+    commission_percent: p.commissionPercent, default_client_name: p.defaultClientName, default_currency: p.defaultCurrency, default_vat_treatment: p.defaultVatTreatment,
   }
 }
 
@@ -39,6 +39,7 @@ export function personFromRow(r: Row): Person {
     paymentTermsDays: num(r.payment_terms_days), hourlyRate: num(r.hourly_rate), baseFee: num(r.base_fee),
     commissionPercent: num(r.commission_percent), defaultClientName: str(r.default_client_name),
     defaultCurrency: (str(r.default_currency) || 'SEK') as Currency,
+    defaultVatTreatment: (str(r.default_vat_treatment) || (r.vat_registered ? 'domestic' : 'exempt')) as VatTreatment,
   }
 }
 

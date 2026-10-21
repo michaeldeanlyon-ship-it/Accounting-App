@@ -90,3 +90,13 @@ describe('foreign invoices paid in SEK', () => {
     expect(cashInByMonth([usd], ['2026-10'])[0].paid).toEqual({ sam: 1_032_500 })
   })
 })
+
+describe('VAT limit turnover for sales outside Sweden', () => {
+  it('leaves out invoices whose place of supply is outside Sweden', () => {
+    const sales = [
+      inv({ id: 'se', ownerId: 'sam', vatTreatment: 'exempt' }),
+      inv({ id: 'us', ownerId: 'sam', vatTreatment: 'export', currency: 'USD', fxRateToSek: 10 }),
+    ]
+    expect(turnoverForYear(sales, 'sam', 2026)).toBe(10_000)
+  })
+})

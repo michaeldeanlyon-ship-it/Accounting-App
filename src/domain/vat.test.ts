@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { effectiveVatRate, suggestVatTreatment, legalNotes, isEuCountry, VAT_TREATMENT_LABELS } from './vat'
+import { effectiveVatRate, suggestVatTreatment, legalNotes, isEuCountry, VAT_TREATMENT_LABELS, allowedVatTreatments, countsTowardsVatLimit } from './vat'
 
 describe('vat', () => {
   it('charges the line rate only for domestic sales', () => {
@@ -51,5 +51,22 @@ describe('vat', () => {
 
   it('has a friendly label for every treatment', () => {
     expect(VAT_TREATMENT_LABELS.domestic).toBe('Sweden: moms charged')
+  })
+})
+
+describe('VAT choices per seller', () => {
+  it('lets a VAT-registered seller charge moms, reverse charge or sell outside the EU', () => {
+    expect(allowedVatTreatments(true)).toEqual(['domestic', 'eu_reverse_charge', 'export'])
+  })
+
+  it('lets a seller who is not registered be momsbefriad or sell outside Sweden', () => {
+    expect(allowedVatTreatments(false)).toEqual(['exempt', 'export'])
+  })
+
+  it('says which sales are taxed in Sweden and count towards the VAT limit', () => {
+    expect(countsTowardsVatLimit('exempt')).toBe(true)
+    expect(countsTowardsVatLimit('domestic')).toBe(true)
+    expect(countsTowardsVatLimit('export')).toBe(false)
+    expect(countsTowardsVatLimit('eu_reverse_charge')).toBe(false)
   })
 })
