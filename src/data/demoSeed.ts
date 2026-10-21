@@ -45,7 +45,7 @@ export function demoSeed(today: IsoDate): Seed {
     {
       ...basePerson, id: 'alex', displayName: 'Alex', roleTitle: 'Translator', workStyle: 'hourly', color: '#7c3aed',
       businessName: 'Alex Översättning', orgNumber: '19881218-9876', email: 'alex@example.com', vatRegistered: true,
-      vatNumber: 'SE881218987601', birthYear: 1988, monthlyFskatt: 11_000, bankgiro: '123-4567', invoicePrefix: 'A',
+      vatNumber: 'SE881218987601', birthYear: 1988, monthlyFskatt: 7_000, bankgiro: '123-4567', invoicePrefix: 'A',
       nextInvoiceNumber: 45, hourlyRate: 65_000, defaultClientName: 'Nordic Lingua AB',
     },
     {

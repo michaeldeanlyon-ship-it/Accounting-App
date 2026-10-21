@@ -7,7 +7,9 @@ describe('Tax page', () => {
     renderApp('/people/alex/tax')
     expect(await screen.findByRole('heading', { name: 'Tax 2026' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Estimated tax for the year' })).toHaveTextContent(/kr/)
-    expect(screen.getByRole('group', { name: 'F-skatt paid so far' })).toHaveTextContent('110 000 kr')
+    expect(screen.getByRole('group', { name: 'F-skatt paid so far' })).toHaveTextContent('70 000 kr')
+    expect(screen.getByRole('group', { name: 'Not covered by F-skatt' })).toHaveTextContent(/[1-9]/)
+    expect(screen.getByText(/F-skatt is about .* short for the year/)).toBeInTheDocument()
   })
 
   it('shows how a periodiseringsfond lowers the tax', async () => {

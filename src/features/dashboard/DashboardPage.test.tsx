@@ -33,6 +33,20 @@ describe('Dashboard', () => {
     expect(within(first).getByRole('link', { name: /Nordic Lingua AB/ })).toHaveAttribute('href', '/people/alex/invoices/alex-42')
   })
 
+  it('keeps the list short by hiding payments older than 30 days until asked', async () => {
+    const { user } = renderApp('/')
+    const list = await screen.findByRole('list', { name: 'Incoming payments' })
+    expect(within(list).getByText(/S-0015/)).toBeInTheDocument()
+    expect(within(list).queryByText(/S-0013/)).toBeNull()
+    await user.click(screen.getByRole('button', { name: /Show older payments/ }))
+    expect(within(screen.getByRole('list', { name: 'Incoming payments' })).getByText(/S-0013/)).toBeInTheDocument()
+  })
+
+  it('shows tax not covered by F-skatt per person', async () => {
+    renderApp('/')
+    expect(await screen.findByRole('group', { name: 'Tax to set aside' })).toHaveTextContent(/Alex[\s\S]*[1-9][\d ]* kr/)
+  })
+
   it('filters everything to one person', async () => {
     const { user } = renderApp('/')
     await user.click(await screen.findByRole('button', { name: 'Sam' }))

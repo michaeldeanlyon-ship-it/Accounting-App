@@ -67,7 +67,8 @@ export function convertToSek(m: Money, rateToSek: number): Money {
 
 export function formatMoney(m: Money, options: { decimals?: 0 | 2 } = {}): string {
   const decimals = options.decimals ?? 2
-  const major = toMajor(m)
+  // Anything that rounds to zero is shown as plain zero, never "-0".
+  const major = Number(toMajor(m).toFixed(decimals)) === 0 ? 0 : toMajor(m)
   const text =
     m.currency === 'SEK'
       ? `${new Intl.NumberFormat('sv-SE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(major)} kr`

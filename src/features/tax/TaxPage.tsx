@@ -31,7 +31,6 @@ export function TaxPage() {
   const baseline = personTaxSummary({ ...sources, plan: { periodiseringsfond: 0, pensionSaving: 0 } })
   const { estimate, ytd, advice } = summary
   const saving = baseline.estimate.total - estimate.total
-  const leftToSetAside = Math.max(0, estimate.total - summary.fSkattPaid)
   const suggestions = taxSuggestions({
     input: summary.input, vatRegistered: person.vatRegistered, turnoverThisYear: turnoverForYear(invoices.data, person.id, year),
     hasOccupationalPension: person.hasOccupationalPension, housing: person.housing, today, monthlyFskatt: person.monthlyFskatt,
@@ -64,7 +63,7 @@ export function TaxPage() {
           <p data-testid="estimated-total" className="mt-1 text-2xl font-semibold tabular-nums">{kr(estimate.total)}</p>
         </Kpi>
         <Kpi label="F-skatt paid so far" value={kr(summary.fSkattPaid)} hint={`${kr(person.monthlyFskatt)} a month`} />
-        <Kpi label="Still to set aside" value={kr(leftToSetAside)} tone={leftToSetAside > 0 ? 'warning' : 'success'} hint="Estimate minus F-skatt paid" />
+        <Kpi label="Not covered by F-skatt" value={kr(advice.shortfall)} tone={advice.shortfall > 0 ? 'warning' : 'success'} hint={`Estimate minus 12 × ${kr(person.monthlyFskatt)}. Set this aside.`} />
       </div>
 
       {advice.shortfall > 0 ? (

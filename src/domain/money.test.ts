@@ -55,4 +55,9 @@ describe('money', () => {
     expect(formatMoney(money(240000, 'EUR'))).toBe('€2,400.00')
     expect(formatMoney(money(-50000, 'SEK'), { decimals: 0 })).toBe('-500 kr')
   })
+
+  it('never shows a negative zero', () => {
+    expect(formatMoney(money(-0, 'SEK'), { decimals: 0 })).toBe('0 kr')
+    expect(formatMoney(money(-40, 'SEK'), { decimals: 0 })).toBe('0 kr')
+  })
 })

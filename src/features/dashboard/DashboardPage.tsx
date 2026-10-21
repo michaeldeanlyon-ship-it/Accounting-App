@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useToday } from '../../app/context'
 import { Card, EmptyState, Kpi, Notice, PageLoading, PersonDot, StatusPill } from '../../components/ui'
 import { cashInByMonth, dashboardKpis, incomingPayments, turnoverForYear, vatThresholdStatus } from '../../domain/dashboard'
-import { formatShortDate, monthKey, parseIso, yearOf, type IsoDate } from '../../domain/dates'
+import { addDays, formatShortDate, monthKey, parseIso, yearOf, type IsoDate } from '../../domain/dates'
 import { upcomingDeadlines } from '../../domain/deadlines'
 import { formatDuration } from '../../domain/duration'
 import { invoiceTotals } from '../../domain/invoice'
@@ -32,6 +32,7 @@ export function DashboardPage() {
   const params = useTaxParams(yearOf(today))
   const setPaid = useSetPaid()
   const [filter, setFilter] = useState<string>('all')
+  const [showOlder, setShowOlder] = useState(false)
 
   const loaded = people.data && invoices.data && expenses.data && deductions.data && params.data
   const heading = (
@@ -54,7 +55,11 @@ export function DashboardPage() {
   const owner = filter === 'all' ? undefined : filter
   const shownPeople = owner ? allPeople.filter((p) => p.id === owner) : allPeople
   const kpis = dashboardKpis(allInvoices, today, owner)
-  const rows = incomingPayments(allInvoices, today, owner)
+  const allRows = incomingPayments(allInvoices, today, owner)
+  const recentSince = addDays(today, -30)
+  const isOld = (r: (typeof allRows)[number]) => r.outstandingSek.amount <= 0 && (r.invoice.paidDate ?? '') < recentSince
+  const olderCount = allRows.filter(isOld).length
+  const rows = showOlder ? allRows : allRows.filter((r) => !isOld(r))
   const cash = cashInByMonth(owner ? allInvoices.filter((i) => i.ownerId === owner) : allInvoices, monthWindow(today))
   const byId = new Map(allPeople.map((p) => [p.id, p]))
 
@@ -63,7 +68,7 @@ export function DashboardPage() {
       person, invoices: allInvoices, expenses: expenses.data!, deductions: deductions.data!, params: params.data!, today,
       plan: { periodiseringsfond: 0, pensionSaving: 0 },
     })
-    return { person, amount: Math.max(0, summary.estimate.total - summary.fSkattPaid) }
+    return { person, amount: summary.advice.shortfall }
   })
 
   const vatWarnings = shownPeople
@@ -104,7 +109,7 @@ export function DashboardPage() {
         <Kpi label="Expected in the next 30 days" value={kr(kpis.expected30.amount)} hint={kpis.dueSoonCount ? `${kpis.dueSoonCount} due within a week` : 'Unpaid invoices due soon'} />
         <Kpi label="Overdue" value={kr(kpis.overdue.amount)} tone={kpis.overdueCount ? 'danger' : 'neutral'} hint={kpis.overdueCount ? `${kpis.overdueCount} ${kpis.overdueCount === 1 ? 'invoice' : 'invoices'} past due date` : 'Nothing overdue'} />
         <Kpi label="Paid this month" value={kr(kpis.paidThisMonth.amount)} tone="success" hint="Money received, incl. moms" />
-        <Kpi label="Tax to set aside" hint="Estimated tax this year minus F-skatt paid">
+        <Kpi label="Tax to set aside" hint="Estimated tax this year that F-skatt won't cover">
           <ul className="mt-1 space-y-0.5">
             {taxToSetAside.map(({ person, amount }) => (
               <li key={person.id} className="flex items-center justify-between gap-2 text-sm">
@@ -134,7 +139,7 @@ export function DashboardPage() {
                 const totals = invoiceTotals(invoice)
                 const paid = status === 'paid'
                 return (
-                  <li key={invoice.id} className="flex items-center gap-3 py-3">
+                  <li key={invoice.id} className="flex items-center gap-2 py-3 sm:gap-3">
                     <PersonDot color={person?.color ?? '#999'} />
                     <div className="min-w-0 flex-1">
                       <Link to={`/people/${invoice.ownerId}/invoices/${invoice.id}`} className="block truncate font-medium text-ink hover:text-accent">
@@ -146,9 +151,9 @@ export function DashboardPage() {
                         {invoice.currency !== 'SEK' && ` · ${formatMoney(totals.gross)}`}
                       </p>
                     </div>
-                    <span className="w-28 text-right font-semibold tabular-nums">{kr(paid ? grossSek.amount : outstandingSek.amount)}</span>
+                    <span className="shrink-0 text-right font-semibold tabular-nums sm:w-28">{kr(paid ? grossSek.amount : outstandingSek.amount)}</span>
                     <span className="hidden w-20 text-right sm:block"><StatusPill status={status} testId="payment-status" /></span>
-                    <label className="flex w-16 cursor-pointer items-center justify-end gap-1.5 text-sm text-muted">
+                    <label className="flex shrink-0 cursor-pointer items-center justify-end gap-1.5 text-sm text-muted sm:w-16">
                       <input
                         type="checkbox"
                         className="h-4 w-4 accent-[var(--color-accent)]"
@@ -162,6 +167,11 @@ export function DashboardPage() {
                 )
               })}
             </ul>
+          )}
+          {olderCount > 0 && (
+            <button type="button" onClick={() => setShowOlder((s) => !s)} className="mt-3 text-sm font-medium text-accent hover:underline">
+              {showOlder ? 'Hide older payments' : `Show older payments (${olderCount})`}
+            </button>
           )}
         </Card>
 

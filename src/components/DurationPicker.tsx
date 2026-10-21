@@ -6,7 +6,7 @@ export function DurationPicker({ minutes, onChange, compact }: { minutes: number
   const { hours, minutes: mins } = splitMinutes(Math.max(0, minutes))
   const hourOptions = hours > 24 ? [...HOUR_OPTIONS, hours] : HOUR_OPTIONS
   const minuteOptions = MINUTE_OPTIONS.includes(mins) ? MINUTE_OPTIONS : [...MINUTE_OPTIONS, mins].sort((a, b) => a - b)
-  const select = `${inputClass} ${compact ? 'h-9 w-[4.75rem] px-2' : 'w-24'}`
+  const select = `${inputClass} ${compact ? 'w-[5.75rem] pl-2 pr-1' : 'w-28'}`
   return (
     <div className="flex items-center gap-2">
       <select aria-label="Hours" className={select} value={hours} onChange={(e) => onChange(toMinutes(Number(e.target.value), mins))}>

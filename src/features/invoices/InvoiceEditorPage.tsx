@@ -279,7 +279,7 @@ function InvoiceEditor({ invoice, person, clientNames }: { invoice: Invoice; per
               </>
             ) : (
               <>
-                <label className="flex items-center gap-2 text-sm text-muted">
+                <label className="flex items-center gap-2 whitespace-nowrap text-sm text-muted">
                   Paid on
                   <input type="date" aria-label="Payment date" className={`${inputClass} w-40`} value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
                 </label>
