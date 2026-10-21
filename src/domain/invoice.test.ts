@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   lineNet, lineDetail, invoiceTotals, invoiceStatus, dueDateFromTerms, createCreditNote,
-  salesPeriodFor, salesInvoiceLines, timeLinesFromEntries, recordPayment, markUnpaid, validateForSending, receivedSek, receivedNetSek,
+  salesPeriodFor, salesInvoiceLines, dayNote, timeLinesFromEntries, recordPayment, markUnpaid, validateForSending, receivedSek, receivedNetSek,
   type Invoice, type InvoiceLine,
 } from './invoice'
 import { money } from './money'
@@ -139,7 +139,7 @@ describe('building invoices', () => {
       ],
       65000, 25,
     )
-    expect(lines.map((l) => l.description)).toEqual(['Wed 14 Oct · Contract EN→SV', 'Fri 16 Oct · Terminology review'])
+    expect(lines.map((l) => l.description)).toEqual(['Contract EN→SV', 'Terminology review'])
     expect(lines[0]).toMatchObject({ kind: 'time', minutes: 435, hourlyRate: 65000, timeEntryId: 't1', workDate: '2026-10-14' })
   })
 
@@ -206,5 +206,12 @@ describe('money actually received in SEK', () => {
     const domestic = recordPayment(invoice({ lines: [{ id: 'x', kind: 'fixed', description: 'Work', quantity: 1, unit: 'st', unitPrice: 1_000_000, vatRate: 25 }] }), '2026-10-30')
     expect(receivedNetSek(domestic)).toEqual(money(1_000_000, 'SEK'))
     expect(receivedNetSek(recordPayment(usd, '2026-10-30', undefined, 1_032_500))).toEqual(money(1_032_500, 'SEK'))
+  })
+})
+
+describe('day notes on the invoice', () => {
+  it('drops a date that older descriptions repeat, since the date has its own column', () => {
+    expect(dayNote({ id: 'a', kind: 'time', description: 'Tue 13 Oct · Legal contract', workDate: '2026-10-13', minutes: 390, hourlyRate: null, vatRate: 25 })).toBe('Legal contract')
+    expect(dayNote({ id: 'b', kind: 'time', description: 'Legal contract', workDate: '2026-10-13', minutes: 390, hourlyRate: null, vatRate: 25 })).toBe('Legal contract')
   })
 })

@@ -4,7 +4,7 @@ import { useToday } from '../../app/context'
 import { DurationPicker } from '../../components/DurationPicker'
 import { NumberInput } from '../../components/NumberInput'
 import { Button, Card, Field, Notice, PageLoading, StatusPill, inputClass } from '../../components/ui'
-import { formatDayLabel, formatShortDate } from '../../domain/dates'
+import { formatShortDate } from '../../domain/dates'
 import { formatDuration } from '../../domain/duration'
 import { invoiceStatus, invoiceTotals, lineNet, validateForSending, type Invoice, type InvoiceLine } from '../../domain/invoice'
 import { CURRENCIES, formatMoney, money, type Currency } from '../../domain/money'
@@ -254,7 +254,7 @@ function InvoiceEditor({ invoice, person, clientNames }: { invoice: Invoice; per
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {person.workStyle === 'hourly' && (
-            <Button size="sm" onClick={() => addLine({ id: crypto.randomUUID(), kind: 'time', description: `${formatDayLabel(today)} · `, workDate: today, minutes: 0, hourlyRate: person.hourlyRate > 0 ? person.hourlyRate : null, vatRate })}>
+            <Button size="sm" onClick={() => addLine({ id: crypto.randomUUID(), kind: 'time', description: '', workDate: today, minutes: 0, hourlyRate: person.hourlyRate > 0 ? person.hourlyRate : null, vatRate })}>
               + Add day
             </Button>
           )}

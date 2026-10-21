@@ -76,8 +76,16 @@ describe('Invoice editor', () => {
     expect(screen.getByTestId('total-gross')).toHaveTextContent('18 750,00 kr')
     await user.click(screen.getByRole('button', { name: 'Preview' }))
     const doc = screen.getByRole('article', { name: 'Invoice preview' })
-    expect(doc).toHaveTextContent('6 h 30 min')
-    expect(doc).toHaveTextContent('Total time')
+    const days = within(doc).getByRole('table', { name: 'Days worked' })
+    const rows = within(days).getAllByRole('row')
+    expect(rows[1]).toHaveTextContent('Tue 13 Oct')
+    expect(rows[1]).toHaveTextContent('Legal contract EN→SV')
+    expect(rows[1]).toHaveTextContent('6 h 30 min')
+    expect(rows[1]).not.toHaveTextContent('25%')
+    expect(within(days).getByText('21 h 10 min')).toBeInTheDocument()
+    const amounts = within(doc).getByRole('table', { name: 'Amounts' })
+    expect(within(amounts).getAllByRole('row')).toHaveLength(2)
+    expect(amounts).not.toHaveTextContent('1 st ×')
   })
 
   it('stops you sending an invoice without a client', async () => {

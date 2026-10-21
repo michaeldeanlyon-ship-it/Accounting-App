@@ -1,6 +1,6 @@
-import { formatShortDate } from '../../domain/dates'
+import { formatDayLabel, formatShortDate } from '../../domain/dates'
 import { formatDuration } from '../../domain/duration'
-import { invoiceTotals, lineDetail, lineNet, type Invoice } from '../../domain/invoice'
+import { dayNote, invoiceTotals, lineDetail, lineNet, type Invoice, type InvoiceLine, type TimeLine } from '../../domain/invoice'
 import { formatMoney } from '../../domain/money'
 import type { Person } from '../../domain/person'
 import { legalNotes } from '../../domain/vat'
@@ -10,6 +10,15 @@ export function InvoiceDocument({ invoice, person, label = 'Invoice' }: { invoic
   const totals = invoiceTotals(invoice)
   const isCredit = invoice.creditsInvoiceId !== null
   const showVat = invoice.vatTreatment === 'domestic'
+  const days = invoice.lines.filter((l): l is TimeLine => l.kind === 'time' && l.hourlyRate === null)
+  const amounts = invoice.lines.filter((l) => !(l.kind === 'time' && l.hourlyRate === null))
+  const dayMinutes = days.reduce((sum, d) => sum + d.minutes, 0)
+  /** Extra detail under a line; a single fixed amount needs none. */
+  const detail = (line: InvoiceLine) => {
+    if (line.kind === 'fixed' && line.quantity === 1) return null
+    if (line.kind === 'time') return `${formatDayLabel(line.workDate)} · ${lineDetail(line, invoice.currency)}`
+    return lineDetail(line, invoice.currency)
+  }
 
   return (
     <article aria-label={label} className="invoice-document mx-auto max-w-3xl rounded-xl border border-line bg-white p-8 text-sm text-ink print:border-0 print:p-0">
@@ -40,7 +49,35 @@ export function InvoiceDocument({ invoice, person, label = 'Invoice' }: { invoic
         {invoice.clientVatNumber && <p className="text-muted">VAT nr {invoice.clientVatNumber}</p>}
       </section>
 
-      <table className="mt-8 w-full">
+      {days.length > 0 && (
+        <table aria-label="Days worked" className="mt-8 w-full">
+          <caption className="mb-2 text-left text-xs uppercase tracking-wide text-muted">Days worked</caption>
+          <thead>
+            <tr className="border-b border-ink/20 text-left text-xs uppercase tracking-wide text-muted">
+              <th className="w-32 py-2 font-medium">Date</th>
+              <th className="py-2 font-medium">What was done</th>
+              <th className="py-2 text-right font-medium">Hours worked</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...days].sort((a, b) => a.workDate.localeCompare(b.workDate)).map((d) => (
+              <tr key={d.id} className="border-b border-line">
+                <td className="py-1.5 whitespace-nowrap">{formatDayLabel(d.workDate)}</td>
+                <td className="py-1.5">{dayNote(d) || '—'}</td>
+                <td className="py-1.5 text-right tabular-nums">{formatDuration(Math.abs(d.minutes))}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td className="pt-2 font-semibold" colSpan={2}>Total time</td>
+              <td className="pt-2 text-right font-semibold tabular-nums">{formatDuration(Math.abs(dayMinutes))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      )}
+
+      <table aria-label="Amounts" className="mt-8 w-full">
         <thead>
           <tr className="border-b border-ink/20 text-left text-xs uppercase tracking-wide text-muted">
             <th className="py-2 font-medium">Description</th>
@@ -49,21 +86,21 @@ export function InvoiceDocument({ invoice, person, label = 'Invoice' }: { invoic
           </tr>
         </thead>
         <tbody>
-          {invoice.lines.map((line) => (
+          {amounts.map((line) => (
             <tr key={line.id} className="border-b border-line align-top">
               <td className="py-2">
-                <p>{line.description || '—'}</p>
-                <p className="text-xs text-muted">{lineDetail(line, invoice.currency)}</p>
+                <p>{(line.kind === 'time' ? dayNote(line) : line.description) || '—'}</p>
+                {detail(line) && <p className="text-xs text-muted">{detail(line)}</p>}
               </td>
               {showVat && <td className="py-2 text-right text-muted">{line.vatRate}%</td>}
-              <td className="py-2 text-right tabular-nums">{line.kind === 'time' && line.hourlyRate === null ? '' : formatMoney(lineNet(line, invoice.currency))}</td>
+              <td className="py-2 text-right tabular-nums">{formatMoney(lineNet(line, invoice.currency))}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
       <dl className="ml-auto mt-4 grid max-w-xs grid-cols-[1fr_auto] gap-x-6 gap-y-1">
-        {totals.totalMinutes !== 0 && (<><dt className="text-muted">Total time</dt><dd className="text-right">{formatDuration(Math.abs(totals.totalMinutes))}</dd></>)}
+        {totals.totalMinutes !== 0 && days.length === 0 && (<><dt className="text-muted">Total time</dt><dd className="text-right">{formatDuration(Math.abs(totals.totalMinutes))}</dd></>)}
         <dt className="text-muted">Net amount</dt><dd className="text-right tabular-nums">{formatMoney(totals.net)}</dd>
         {totals.vatGroups.map((g) => (
           <div key={g.rate} className="contents">

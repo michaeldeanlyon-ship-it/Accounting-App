@@ -232,13 +232,19 @@ export function timeLinesFromEntries(entries: readonly TimeEntry[], hourlyRate: 
     .map((entry) => ({
       id: crypto.randomUUID(),
       kind: 'time',
-      description: `${formatDayLabel(entry.workDate)} · ${entry.note}`,
+      description: entry.note,
       workDate: entry.workDate,
       minutes: entry.minutes,
       hourlyRate,
       vatRate,
       timeEntryId: entry.id,
     }))
+}
+
+/** What was done on a day, without the date that older descriptions started with. */
+export function dayNote(line: TimeLine): string {
+  const prefix = `${formatDayLabel(line.workDate)} · `
+  return line.description.startsWith(prefix) ? line.description.slice(prefix.length) : line.description
 }
 
 function negateLine(line: InvoiceLine): InvoiceLine {
