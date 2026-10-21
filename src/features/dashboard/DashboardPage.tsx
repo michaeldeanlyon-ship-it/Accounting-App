@@ -191,18 +191,18 @@ export function DashboardPage() {
 /** The one-click Paid tick. Shows the new state the moment it's clicked, until the save settles. */
 function PaidCheckbox({ invoice, paid }: { invoice: Invoice; paid: boolean }) {
   const setPaid = useSetPaid()
-  const [pending, setPending] = useState<boolean | null>(null)
+  // Left to the browser, the box ticks the moment it's clicked. React redraws it (new key)
+  // only when the saved state changes, or after a failed save so it falls back.
+  const [failures, setFailures] = useState(0)
   return (
     <label className="flex shrink-0 cursor-pointer items-center justify-end gap-1.5 text-sm text-muted sm:w-16">
       <input
+        key={`${paid}-${failures}`}
         type="checkbox"
         className="h-4 w-4 accent-[var(--color-accent)]"
         aria-label={`Mark ${invoice.number} as paid`}
-        checked={pending ?? paid}
-        onChange={(e) => {
-          setPending(e.target.checked)
-          setPaid.mutate({ invoice, paid: e.target.checked }, { onSettled: () => setPending(null) })
-        }}
+        defaultChecked={paid}
+        onChange={(e) => setPaid.mutate({ invoice, paid: e.target.checked }, { onError: () => setFailures((n) => n + 1) })}
       />
       <span aria-hidden="true">Paid</span>
     </label>
